@@ -128,4 +128,20 @@ public int put(long key, int value) {
     public void validate() {
         // TODO
     }
+
+/** In trạng thái bảng để dượt, không dùng trong vùng đo. */
+public String dump() {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < capacity; i++) {
+        sb.append(i).append(": ");
+        if (keys[i] == EMPTY) {
+            sb.append("-");
+        } else {
+            sb.append("key=").append(keys[i]).append(" dib=").append(dib[i]);
+        }
+        sb.append('\n');
+    }
+    return sb.toString();
+}
+
 }
