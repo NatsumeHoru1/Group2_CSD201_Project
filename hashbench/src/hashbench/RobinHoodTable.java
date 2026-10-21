@@ -132,16 +132,57 @@ public boolean remove(long key) {
     // HashStats
     @Override public int tombCount() { return 0; }          // Robin Hood không có tombstone
     @Override public int emptyCount() { return capacity - size; }
-    @Override public double dibMean() { return 0.0; }       // TODO: đọc từ dib[]
-    @Override public int dibMax() { return 0; }             // TODO: đọc từ dib[]
+@Override
+public double dibMean() {
+    if (size == 0) return 0.0;
+    long sum = 0;
+    for (int i = 0; i < capacity; i++) {
+        if (keys[i] != EMPTY) sum += dib[i];
+    }
+    return (double) sum / size;
+}
+
+@Override
+public int dibMax() {
+    int max = 0;
+    for (int i = 0; i < capacity; i++) {
+        if (keys[i] != EMPTY && dib[i] > max) max = dib[i];
+    }
+    return max;
+}
     @Override public long rebuildCount() { return 0L; }
     @Override public long rebuildNanos() { return 0L; }
     @Override public long probeCount() { return 0L; }       // TODO: nối với Counters
 
-    /** Kiểm tra bất biến; ném IllegalStateException nếu sai. */
-    public void validate() {
-        // TODO
+/** Kiểm tra bất biến; ném IllegalStateException nếu sai. */
+public void validate() {
+    int count = 0;
+    for (int i = 0; i < capacity; i++) {
+        if (keys[i] == EMPTY) continue;
+        count++;
+        // 1: dib phải bằng khoảng cách thật từ ô nhà đến ô i
+        int expected = (i - home(keys[i])) & mask;
+        if (dib[i] != expected) {
+            throw new IllegalStateException("dib sai o o " + i);
+        }
+        // 2: bất biến Robin Hood với ô đứng trước
+        int prev = (i - 1) & mask;
+        if (keys[prev] == EMPTY) {
+            if (dib[i] != 0) {                       // sau ô rỗng thì dib phải bằng bao nhiêu?
+                throw new IllegalStateException("dib phai bang 0 sau o rong, o o " + i);
+            }
+        } else if (dib[i] > dib[prev] + 1) {                    // dib[i] không được vượt dib[prev] cộng mấy?
+            throw new IllegalStateException("vi pham bat bien Robin Hood o o " + i);
+        }
+        // 3: get phải tìm lại được chính ô này
+        if (find(keys[i]) != i) {
+            throw new IllegalStateException("khong tim lai duoc khoa o o " + i);
+        }
     }
+    if (count != size) {
+        throw new IllegalStateException("size khong khop so o co khoa");
+    }
+}
 
 /** In trạng thái bảng để dượt, không dùng trong vùng đo. */
 public String dump() {
