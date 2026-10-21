@@ -36,13 +36,6 @@ public class RobinHoodTable implements HashIndex, HashStats {
         return (int) ((key * 0x9E3779B97F4A7C15L) >>> (64 - p));
     }
 
-    @Override
-    public int put(long key, int value) {
-        if (value == NOT_FOUND) {
-            throw new IllegalArgumentException("value không được bằng NOT_FOUND");
-        }
-        throw new UnsupportedOperationException("TODO put");
-    }
 
     @Override
     public int get(long key) {
@@ -55,6 +48,64 @@ public class RobinHoodTable implements HashIndex, HashStats {
         }
         return NOT_FOUND;
     }
+
+/** Trả về chỉ số ô chứa khóa, hoặc -1 nếu không có. Luôn dừng sớm (đúng với mọi bảng hợp lệ). */
+private int find(long key) {
+    int idx = home(key);
+    for (int d = 0; d < capacity; d++) {
+        if (keys[idx] == EMPTY || dib[idx] < d) return -1;
+        if (keys[idx] == key) return idx;
+        idx = (idx + 1) & mask;
+    }
+    return -1;
+}
+
+@Override
+public int put(long key, int value) {
+    if (value == NOT_FOUND) {
+        throw new IllegalArgumentException("value không được bằng NOT_FOUND");
+    }
+
+    if (size == capacity) {            // bảng đầy: chỉ được cập nhật, không được chèn
+        int at = find(key);
+        if (at >= 0) {
+            vals[at] = value;
+            return UPDATED;
+        }
+        return FULL;
+    }
+
+    long curKey = key;
+    int curVal = value;
+    int curDib = 0;
+    int idx = home(key);
+    while (true) {
+        if (keys[idx] == EMPTY) {      // ô rỗng: đặt khóa đang cầm vào đây
+            keys[idx] = curKey;
+            vals[idx] = curVal;
+            dib[idx] = curDib;
+            size++;
+            return INSERTED;
+        }
+        if (keys[idx] == curKey) {     // khóa gốc đã có: cập nhật
+            vals[idx] = curVal;
+            return UPDATED;
+        }
+        if (dib[idx] < curDib) {       // hoán đổi: khóa đang cầm vào ô, khóa cũ bị đẩy ra
+            long tk = keys[idx];
+            int tv = vals[idx];
+            int td = dib[idx];
+            keys[idx] = curKey;
+            vals[idx] = curVal;
+            dib[idx] = curDib;
+            curKey = tk;
+            curVal = tv;
+            curDib = td;
+        }
+        idx = (idx + 1) & mask;
+        curDib++;
+    }
+}
 
     @Override
     public boolean remove(long key) {
