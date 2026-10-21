@@ -1,0 +1,4 @@
+hashbench/out/
+*.class
+*.jar
+nbproject/private/
