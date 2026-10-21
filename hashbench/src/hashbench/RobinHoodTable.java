@@ -107,10 +107,24 @@ public int put(long key, int value) {
     }
 }
 
-    @Override
-    public boolean remove(long key) {
-        throw new UnsupportedOperationException("TODO remove");
+@Override
+public boolean remove(long key) {
+    int i = find(key);
+    if (i < 0) return false;                       // khóa không có: dữ liệu không đổi
+    int next = (i + 1) & mask;
+    while (keys[next] != EMPTY && dib[next] > 0) { // 1: phần tử kế chưa nằm đúng nhà
+        keys[i] = keys[next];
+        vals[i] = vals[next];
+        dib[i] = dib[next] - 1;                    // 2: giảm dib đi 1
+        i = next;
+        next = (next + 1) & mask;
     }
+    keys[i] = EMPTY;                               // 3: ô cuối cùng bị bỏ trống
+    vals[i] = 0;
+    dib[i] = 0;
+    size--;
+    return true;
+}
 
     @Override public int size() { return size; }
     @Override public int capacity() { return capacity; }
