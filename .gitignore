@@ -2,3 +2,6 @@ hashbench/out/
 *.class
 *.jar
 nbproject/private/
+/build/
+/dist/
+results/raw/tmp/

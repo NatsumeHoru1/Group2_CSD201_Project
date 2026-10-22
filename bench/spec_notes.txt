@@ -1,0 +1,122 @@
+SPEC_NOTES.TXT - trích từ đề tài 2 và quy định chung đồ án CSD201 FA26 (bản dự thảo 261014)
+Nguồn sự thật cho AI và cho TV1/TV6. Mục E là ĐỀ XUẤT, nhóm phải chốt rồi ghi vào CONVENTIONS.md.
+
+==========================================================
+A. CSV: 20 CỘT BẮT BUỘC, ĐÚNG THỨ TỰ (quy định chung, Bảng 4)
+==========================================================
+ 1 run_id             Mã lượt chạy, không trùng
+ 2 rq                 RQ1, RQ2, RQ3 hoặc TEST
+ 3 algorithm          Tên thuật toán; mốc thư viện có tiền tố lib-
+ 4 variant            Biến thể hoặc cơ chế bị tắt; "base" nếu không có
+ 5 dataset            Mã họ dữ liệu theo văn bản của đề
+ 6 n                  Quy mô chính: số phần tử, số khóa hoặc số byte
+ 7 params             Tham số khác, dạng key=value;key=value
+ 8 seed               Seed của generator
+ 9 input_sha256       SHA-256 của input (dãy byte big-endian của mảng)
+10 generator_version  Phiên bản generator
+11 repeat             Số thứ tự lượt lặp
+12 elapsed_ms         Thời gian xử lý; ĐỂ TRỐNG nếu không hoàn thành
+13 heap_before_bytes  Heap đang dùng trước lượt đo (6.4)
+14 heap_peak_bytes    Tổng đỉnh heap trong lượt đo (6.4)
+15 ops_count          Bộ đếm ở lượt --count; ĐỂ TRỐNG ở lượt đo thời gian
+16 output_check      Tổng kiểm tra đầu ra (xem D)
+17 status            Một trong: ok, timeout, crash, oom, wrong (KHÔNG có giá trị nào khác)
+18 xmx                Ví dụ 2g
+19 machine_id         Mã máy đo
+20 git_commit         Mã commit của mã nguồn được đo
+
+Cột riêng của đề được thêm sau 20 cột này và phải giải thích trong README.
+Không ghi số liệu dự kiến vào CSV.
+
+==========================================================
+B. STATUS (quy định chung, 6.7)
+==========================================================
+ok       Hoàn thành và kết quả đúng
+timeout  Bị runner dừng sau 60 giây
+crash    Tiến trình kết thúc do lỗi (ví dụ StackOverflowError)
+oom      Gặp OutOfMemoryError
+wrong    Hoàn thành nhưng kết quả khác oracle
+Lượt timeout để trống elapsed_ms; trên hình ghi "> 60 s", không vẽ như điểm đo hoàn thành.
+timeout, crash, oom là kết quả hợp lệ, phải báo cáo.
+
+==========================================================
+C. YÊU CẦU BỘ ĐO (quy định chung, 6.1 - 6.8, 10.1)
+==========================================================
+6.1 Mỗi lượt đo = 1 tiến trình JVM riêng qua ProcessBuilder. Process.waitFor(60, SECONDS);
+    quá hạn thì destroyForcibly() và ghi timeout. Máy < 8 GB RAM dùng -Xmx1g và ghi vào cột xmx.
+    Các lượt so sánh trong cùng một RQ dùng cùng -Xmx.
+6.2 Làm nóng: trước lượt đo chạy cùng thuật toán 3 lần trên dữ liệu nhỏ (<= 10^5 phần tử
+    hoặc 1 MiB). Không ghi CSV.
+6.3 System.nanoTime() chỉ bao quanh phần xử lý của thuật toán. Không tính sinh dữ liệu,
+    kiểm tra đúng, ghi CSV. Không in ra màn hình trong vùng đo.
+6.4 Ngay trước lượt đo: System.gc(), đặt lại đỉnh mọi vùng heap, ghi heap đang dùng.
+    Sau lượt đo ghi tổng đỉnh. Bộ nhớ phụ = heap_peak_bytes - heap_before_bytes.
+    Mã mẫu của quy định:
+      static long heapBytes(boolean peak) {
+        long sum = 0;
+        for (MemoryPoolMXBean p : ManagementFactory.getMemoryPoolMXBeans()) {
+          if (p.getType() != MemoryType.HEAP) continue;
+          MemoryUsage u = peak ? p.getPeakUsage() : p.getUsage();
+          if (u != null) sum += u.getUsed();
+        }
+        return sum;
+      }
+      static void resetHeapPeaks() {
+        for (MemoryPoolMXBean p : ManagementFactory.getMemoryPoolMXBeans())
+          if (p.getType() == MemoryType.HEAP) p.resetPeakUsage();
+      }
+6.5 Bộ đếm (số lần dò) chỉ bật ở lượt riêng có --count. Lượt đo thời gian chạy với bộ đếm tắt.
+6.6 Mỗi cấu hình trả lời RQ chạy 3 lượt; dữ liệu ngẫu nhiên dùng 3 seed. Paper báo median/min/max.
+    Cấu hình kiểm tra giới hạn (bộ dồn cụm) chạy 1 lượt, ghi repeat = 1.
+6.8 Generator nhận seed và có số phiên bản. Mỗi lượt đo ghi SHA-256 của input.
+10.1 Chạy lại tại buổi bảo vệ KHỚP khi: status và output_check giống dòng đã nộp,
+    và thời gian nằm trong 0,5 - 2 lần median đã báo cáo.
+    => output_check phải TẤT ĐỊNH theo seed (dữ liệu và workload đều sinh từ seed).
+    => cần lệnh chạy lại MỘT dòng/cấu hình trong < 60 giây (README).
+
+==========================================================
+D. QUY ƯỚC RIÊNG CỦA ĐỀ 2 (hash table)
+==========================================================
+Khóa long không âm, giá trị int. Thao tác put (thêm hoặc cập nhật), get, remove.
+M = 2^p. Hàm băm chung: h(k) = (int)((k * 0x9E3779B97F4A7C15L) >>> (64 - p)).
+Không tự mở rộng bảng. Dò mở dò tối đa M ô; không còn chỗ thì put trả "đầy", dữ liệu không đổi.
+
+Tên trong CSV (đề, Bảng 2 và 3):
+  sc            algorithm=sc,           variant=base
+  lp-tomb       algorithm=lp-tomb,      variant=base; tham số tau trong params
+                (RQ2: không rebuild, tau vô hạn; RQ3: tau=0.2 ở tải sống 0,5; tau=0.1 ở tải sống 0,8)
+  lp-backshift  algorithm=lp-backshift, variant=base; ghi rõ đã dùng Algorithm R (Knuth) hay
+                cách chèn lại cụm (Sedgewick-Wayne) vào params
+  rh            algorithm=rh,           variant=base
+  rh noearly    algorithm=rh,           variant=noearly   (KHÔNG đặt algorithm="rh-noearly")
+
+output_check (mọi lượt đo): tổng kiểu long (cho phép tràn) của các giá trị trả về khi get
+tìm thấy, cộng với số lần get không tìm thấy.
+
+Dữ liệu: N = round(alpha * M) khóa có mặt (SplittableRandom(seed), loại trùng bằng HashSet);
+khóa vắng mặt cùng phân phối, loại khóa có mặt.
+RQ1: 5x10^6 truy vấn có mặt + 5x10^6 vắng mặt, đo riêng; thời gian dựng bảng đo riêng.
+     Bộ dồn cụm: 10% khóa có h(k) < M/64, alpha = 0,75; M = 2^18 và 2^20; 1 lượt.
+RQ2/RQ3 workload: dựng bảng tải sống x M; mỗi chu kỳ = xóa 1 khóa ngẫu nhiên đang có rồi thêm 1 khóa mới;
+     tại mỗi mốc C đo 10^6 truy vấn có mặt + 10^6 vắng mặt, ghi tỷ lệ TOMB, tỷ lệ EMPTY, số lần dò TB;
+     RQ2 dựng thêm bảng mới từ đúng tập khóa đang có và đo cùng bộ truy vấn (đối chứng);
+     chia workload thành khối 10^4 thao tác, ghi thời gian từng khối (median, max).
+     Mỗi mốc C = 1 tiến trình riêng, chạy lại workload từ đầu đến C. Timeout 60 s / tiến trình.
+Chỉ số: số lần dò (--count), ns/thao tác, tổng workload + median/max khối + số rebuild + tổng thời gian rebuild,
+        tỷ lệ TOMB/EMPTY, DIB TB và max (rh), bộ nhớ phụ.
+
+==========================================================
+E. ĐỀ XUẤT (nhóm phải chốt hôm nay, ghi vào CONVENTIONS.md)
+==========================================================
+E1. 1 dòng CSV = 1 pha đo của 1 tiến trình. run_id = proc_id + "_" + phase.
+E2. Tên pha: build, present, absent, workload, ctl_present, ctl_absent.
+E3. dataset: rq1a (thí nghiệm A), rq1b (thí nghiệm B), rq1clust (bộ dồn cụm), rq2, rq3, test.
+E4. n = số khóa N; p, alpha, load, C, tau, queries đưa vào params (key=value;...).
+E5. Cột riêng đặt SAU 20 cột bắt buộc:
+      proc_id, phase, wall_ms, phase_note,
+      tomb_ratio, empty_ratio, rebuild_count, rebuild_ms,
+      block_median_ms, block_max_ms, dib_mean, dib_max
+    (phase_note = not_started cho pha chưa chạy do timeout/crash; các cột chỉ số trống nếu không áp dụng.)
+E6. Pha chưa chạy do timeout: status=timeout, elapsed_ms trống, phase_note=not_started.
+    Pha chưa chạy do crash/oom của pha trước: status=crash (hoặc oom), elapsed_ms trống, phase_note=not_started.
+E7. Lượt --count ghi ops_count (tổng số ô đã xem); số truy vấn nằm trong params (queries=...).

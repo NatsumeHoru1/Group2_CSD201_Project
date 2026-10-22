@@ -1,19 +1,19 @@
 @echo off
-setlocal
+setlocal EnableDelayedExpansion
 cd /d "%~dp0"
 
 if not exist "hashbench\out" mkdir "hashbench\out"
-javac -encoding UTF-8 -source 1.8 -target 1.8 -d "hashbench\out" ^
-  "hashbench\src\hashbench\HashIndex.java" ^
-  "hashbench\src\hashbench\HashStats.java" ^
-  "hashbench\src\hashbench\StubHashIndex.java" ^
-  "hashbench\src\hashbench\Counters.java" ^
-  "hashbench\src\hashbench\RunConfig.java" ^
-  "hashbench\src\hashbench\Runner.java" ^
-  "hashbench\src\hashbench\CsvSchema.java" ^
-  "hashbench\src\hashbench\CsvWriter.java" ^
-  "hashbench\src\hashbench\Main.java"
-if errorlevel 1 exit /b 1
+set "SOURCE_LIST=%TEMP%\hashbench_sources_%RANDOM%_%RANDOM%.txt"
+for /R "hashbench\src" %%F in (*.java) do (
+  set "JAVA_FILE=%%F"
+  set "JAVA_FILE=!JAVA_FILE:\=/!"
+  echo "!JAVA_FILE!">>"%SOURCE_LIST%"
+)
+
+javac -encoding UTF-8 -source 1.8 -target 1.8 -d "hashbench\out" @"%SOURCE_LIST%"
+set "BUILD_RESULT=%ERRORLEVEL%"
+del /q "%SOURCE_LIST%"
+if not "%BUILD_RESULT%"=="0" exit /b %BUILD_RESULT%
 
 jar cfe "hashbench\out\hashbench.jar" hashbench.Main -C "hashbench\out" .
 if errorlevel 1 exit /b 1
