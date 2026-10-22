@@ -37,17 +37,20 @@ public class RobinHoodTable implements HashIndex, HashStats {
     }
 
 
-    @Override
-    public int get(long key) {
-        int idx = home(key);
-        for (int d = 0; d < capacity; d++) {
-            if (keys[idx] == EMPTY) return NOT_FOUND;               // 1: ô rỗng
-            if (keys[idx] == key) return vals[idx];               // 2: đúng khóa
-            if (earlyStop && dib[idx] < d) return NOT_FOUND;  // 3: so dib[idx] với d
-            idx = (idx + 1) & mask;
-        }
-        return NOT_FOUND;
+@Override
+public int get(long key) {
+    int idx = home(key);
+    int d = 0;
+    int result = NOT_FOUND;
+    for (; d < capacity; d++) {
+        if (keys[idx] == EMPTY) break;
+        if (keys[idx] == key) { result = vals[idx]; break; }
+        if (earlyStop && dib[idx] < d) break;
+        idx = (idx + 1) & mask;
     }
+    Counters.addProbes(Math.min(d + 1, capacity));   // so o da xem
+    return result;
+}
 
 /** Trả về chỉ số ô chứa khóa, hoặc -1 nếu không có. Luôn dừng sớm (đúng với mọi bảng hợp lệ). */
 private int find(long key) {
@@ -152,7 +155,7 @@ public int dibMax() {
 }
     @Override public long rebuildCount() { return 0L; }
     @Override public long rebuildNanos() { return 0L; }
-    @Override public long probeCount() { return 0L; }       // TODO: nối với Counters
+    @Override public long probeCount() { return Counters.probeCount; }
 
 /** Kiểm tra bất biến; ném IllegalStateException nếu sai. */
 public void validate() {
