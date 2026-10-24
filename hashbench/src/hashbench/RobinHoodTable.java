@@ -31,9 +31,9 @@ public class RobinHoodTable implements HashIndex, HashStats {
         java.util.Arrays.fill(keys, EMPTY);
     }
 
-    /** Ô nhà của khóa. TV2 sẽ có lớp Hashing, khi đó thay thân hàm này. */
+    /** Ô nhà của khóa, dùng thư viện Hashing do TV2 cung cấp. */
     private int home(long key) {
-        return (int) ((key * 0x9E3779B97F4A7C15L) >>> (64 - p));
+        return Hashing.hash(key, p);
     }
 
 
