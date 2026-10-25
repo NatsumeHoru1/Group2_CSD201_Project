@@ -28,8 +28,9 @@ public final class RunConfig {
     public final String exitPhase;
     public final int exitCode;
     public final String oomPhase;
+    public final String phaseNames;
 
-    /** Tạo cấu hình cơ bản với variant base và heap mặc định 2g. */
+    /** Tạo cấu hình test cũ với variant base và heap mặc định 2g. */
     public RunConfig(String rq, String algo, int p, double alpha, int c,
                      double tau, long seed, int repeat) {
         this(rq, algo, "base", "test", 0L, p, alpha, c, tau, 0.0, 0L,
@@ -42,7 +43,17 @@ public final class RunConfig {
                      long seed, int repeat, String xmx, String machineId,
                      int timeoutSec, boolean countMode) {
         this(rq, algo, variant, dataset, n, p, alpha, c, tau, load, queries, seed,
-                repeat, xmx, machineId, timeoutSec, countMode, null, 0L, null, 1, null);
+                repeat, xmx, machineId, timeoutSec, countMode, null);
+    }
+
+    /** Tạo cấu hình benchmark với danh sách pha tùy chọn. */
+    public RunConfig(String rq, String algo, String variant, String dataset, long n,
+                     int p, double alpha, int c, double tau, double load, long queries,
+                     long seed, int repeat, String xmx, String machineId,
+                     int timeoutSec, boolean countMode, String phaseNames) {
+        this(rq, algo, variant, dataset, n, p, alpha, c, tau, load, queries, seed,
+                repeat, xmx, machineId, timeoutSec, countMode, null, 0L, null, 1, null,
+                phaseNames);
     }
 
     /** Khởi tạo và xác thực cấu hình; các hook cuối chỉ phục vụ kiểm thử tiến trình. */
@@ -50,7 +61,8 @@ public final class RunConfig {
                       int p, double alpha, int c, double tau, double load, long queries,
                       long seed, int repeat, String xmx, String machineId,
                       int timeoutSec, boolean countMode, String sleepPhase,
-                      long sleepSeconds, String exitPhase, int exitCode, String oomPhase) {
+                      long sleepSeconds, String exitPhase, int exitCode, String oomPhase,
+                      String phaseNames) {
         if (rq == null || rq.length() == 0 || dataset == null || dataset.length() == 0) {
             throw new IllegalArgumentException("rq và dataset không được rỗng");
         }
@@ -84,7 +96,8 @@ public final class RunConfig {
         this.algo = algo;
         this.variant = variant;
         this.dataset = dataset;
-        this.n = n;
+        this.n = "rq1a".equals(dataset) || "rq1b".equals(dataset)
+                ? Math.round(alpha * (1L << p)) : n;
         this.p = p;
         this.alpha = alpha;
         this.c = c;
@@ -103,6 +116,8 @@ public final class RunConfig {
         this.exitPhase = exitPhase;
         this.exitCode = exitCode;
         this.oomPhase = oomPhase;
+        this.phaseNames = phaseNames == null || phaseNames.length() == 0
+                ? null : phaseNames;
     }
 
     /** Tạo bản sao bật cờ count cho tiến trình con. */
@@ -130,7 +145,8 @@ public final class RunConfig {
             String newExitPhase, int newExitCode, String newOomPhase) {
         return new RunConfig(rq, algo, variant, dataset, n, p, alpha, c, tau, load,
                 queries, seed, repeat, xmx, machineId, timeoutSec, newCountMode,
-                newSleepPhase, newSleepSeconds, newExitPhase, newExitCode, newOomPhase);
+                newSleepPhase, newSleepSeconds, newExitPhase, newExitCode, newOomPhase,
+                phaseNames);
     }
 
     /** Tính M = 2^p theo dung lượng bảng. */
@@ -146,6 +162,50 @@ public final class RunConfig {
         phases.add("absent");
         phases.add("control");
         return phases;
+    }
+
+    /** Chọn pha chạy theo dataset; dataset test giữ control để tương thích test stub. */
+    public static List<String> phasesForDataset(String dataset) {
+        return phasesForDataset(dataset, null);
+    }
+
+    /** Trả về danh sách pha do cấu hình chỉ định hoặc mặc định theo dataset. */
+    public static List<String> phasesForDataset(String dataset, String configuredPhases) {
+        List<String> phases = new ArrayList<String>();
+        if ("rq1a".equals(dataset) || "rq1b".equals(dataset)) {
+            if (configuredPhases == null) {
+                phases.add("build");
+                phases.add("present");
+                phases.add("absent");
+            } else {
+                addConfiguredPhases(phases, configuredPhases, false);
+            }
+        } else if ("test".equals(dataset)) {
+            if (configuredPhases == null) {
+                phases.addAll(defaultPhases());
+            } else {
+                addConfiguredPhases(phases, configuredPhases, true);
+            }
+        } else {
+            throw new IllegalArgumentException("Dataset chưa hỗ trợ: " + dataset);
+        }
+        return phases;
+    }
+
+    /** Tách và kiểm tra pha CLI để không nhận pha không triển khai. */
+    private static void addConfiguredPhases(List<String> phases, String configuredPhases,
+            boolean allowControl) {
+        String[] names = configuredPhases.split(",", -1);
+        for (String name : names) {
+            if (!"build".equals(name) && !"present".equals(name) && !"absent".equals(name)
+                    && !(allowControl && "control".equals(name))) {
+                throw new IllegalArgumentException("Pha chưa hỗ trợ: " + name);
+            }
+            phases.add(name);
+        }
+        if (phases.isEmpty()) {
+            throw new IllegalArgumentException("Danh sách pha không được rỗng");
+        }
     }
 
     /** Dựng chuỗi key=value ổn định, không phụ thuộc locale của máy. */

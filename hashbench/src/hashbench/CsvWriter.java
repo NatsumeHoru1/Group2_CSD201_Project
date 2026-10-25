@@ -85,7 +85,13 @@ public final class CsvWriter implements Closeable {
         values[CsvSchema.REPEAT_INDEX] = Integer.toString(config.repeat);
         if ("ok".equals(result.status)) {
             values[CsvSchema.ELAPSED_MS_INDEX] = result.elapsedMs;
+            values[CsvSchema.HEAP_BEFORE_BYTES_INDEX] = result.heapBefore;
+            values[CsvSchema.HEAP_PEAK_BYTES_INDEX] = result.heapPeak;
+            values[CsvSchema.OPS_COUNT_INDEX] = result.opsCount;
+            values[CsvSchema.OUTPUT_CHECK_INDEX] = result.outputCheck;
         }
+        values[CsvSchema.INPUT_SHA256_INDEX] = result.inputSha256;
+        values[CsvSchema.GENERATOR_VERSION_INDEX] = result.generatorVersion;
         values[CsvSchema.STATUS_INDEX] = result.status;
         values[CsvSchema.XMX_INDEX] = config.xmx;
         values[CsvSchema.MACHINE_ID_INDEX] = config.machineId;

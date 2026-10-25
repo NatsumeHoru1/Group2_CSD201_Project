@@ -58,6 +58,7 @@ public final class Runner {
         Path absoluteWorkingDirectory = workingDirectory.toAbsolutePath().normalize();
         PhaseLog phaseLog = new PhaseLog(procId, absoluteWorkingDirectory);
         Path childOutput = phaseLog.path().resolveSibling(procId + ".stdout");
+        List<String> phases = RunConfig.phasesForDataset(config.dataset, config.phaseNames);
 
         List<String> command = new ArrayList<String>();
         command.add(javaPath);
@@ -65,25 +66,42 @@ public final class Runner {
         command.add("-cp");
         command.add(absoluteClassPath());
         command.add(Main.class.getName());
-        command.add("--phase-child");
-        command.add(procId);
-        command.addAll(RunConfig.defaultPhases());
-        if (config.sleepPhase != null) {
-            command.add("--sleep-phase");
-            command.add(config.sleepPhase);
-            command.add(Long.toString(config.sleepSeconds));
-        }
-        if (config.exitPhase != null) {
-            command.add("--exit-phase");
-            command.add(config.exitPhase);
-            command.add(Integer.toString(config.exitCode));
-        }
-        if (config.oomPhase != null) {
-            command.add("--oom-phase");
-            command.add(config.oomPhase);
-        }
-        if (config.countMode) {
-            command.add("--count");
+        if ("test".equals(config.dataset)) {
+            command.add("--phase-child");
+            command.add(procId);
+            command.addAll(phases);
+            if (config.sleepPhase != null) {
+                command.add("--sleep-phase");
+                command.add(config.sleepPhase);
+                command.add(Long.toString(config.sleepSeconds));
+            }
+            if (config.exitPhase != null) {
+                command.add("--exit-phase");
+                command.add(config.exitPhase);
+                command.add(Integer.toString(config.exitCode));
+            }
+            if (config.oomPhase != null) {
+                command.add("--oom-phase");
+                command.add(config.oomPhase);
+            }
+            if (config.countMode) {
+                command.add("--count");
+            }
+        } else {
+            command.add("--measure-child");
+            command.add(procId);
+            addArgument(command, "--rq", config.rq);
+            addArgument(command, "--algo", config.algo);
+            addArgument(command, "--variant", config.variant);
+            addArgument(command, "--dataset", config.dataset);
+            addArgument(command, "--p", Integer.toString(config.p));
+            addArgument(command, "--alpha", Double.toString(config.alpha));
+            addArgument(command, "--seed", Long.toString(config.seed));
+            addArgument(command, "--queries", Long.toString(config.queries));
+            addArgument(command, "--phases", join(phases, ","));
+            if (config.countMode) {
+                command.add("--count");
+            }
         }
 
         ProcessBuilder builder = new ProcessBuilder(command);
@@ -111,13 +129,16 @@ public final class Runner {
         int exitCode = child.exitValue();
         String output = new String(Files.readAllBytes(childOutput), StandardCharsets.UTF_8);
         Files.deleteIfExists(childOutput);
+        if (!timedOut && exitCode != 0 && output.length() > 0) {
+            System.err.print(output);
+        }
         String countMarker = "Counters.ON=" + Boolean.toString(config.countMode);
-        if (!output.contains(countMarker)) {
+        if (!timedOut && !output.contains(countMarker)) {
             throw new IOException("Tiến trình con không xác nhận " + countMarker
                     + ". Output: " + output);
         }
         List<PhaseResult> results = collectPhases(
-                procId, RunConfig.defaultPhases(), phaseLog.readCompleted(), timedOut, exitCode);
+                procId, phases, phaseLog.readCompleted(), timedOut, exitCode);
 
         try (CsvWriter writer = new CsvWriter(csvPath, true)) {
             writer.writeHeader();
@@ -126,7 +147,25 @@ public final class Runner {
             }
         }
         return new RunResult(procId, wallMs, timedOut, exitCode,
-                config.countMode, results);
+                output.contains("Counters.ON=true"), results);
+    }
+
+    /** Thêm cặp tham số CLI vào lệnh tiến trình con. */
+    private static void addArgument(List<String> command, String name, String value) {
+        command.add(name);
+        command.add(value);
+    }
+
+    /** Ghép tên pha theo dấu phân cách CLI. */
+    private static String join(List<String> values, String separator) {
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < values.size(); i++) {
+            if (i > 0) {
+                result.append(separator);
+            }
+            result.append(values.get(i));
+        }
+        return result.toString();
     }
 
     /** Đổi classpath tương đối thành tuyệt đối trước khi tiến trình đổi thư mục làm việc. */
@@ -158,20 +197,24 @@ public final class Runner {
         String stoppedStatus = null;
         for (String phase : phases) {
             if (stoppedStatus != null) {
-                results.add(new PhaseResult(procId, phase, stoppedStatus, "", "not_started"));
+                results.add(new PhaseResult(procId, phase, stoppedStatus, "", "not_started",
+                        "", "", "", "", "", ""));
                 continue;
             }
             PhaseLog.Entry entry = byPhase.get(phase);
             if (entry != null) {
                 String elapsedMs = "ok".equals(entry.status) ? entry.elapsedMs : "";
-                results.add(new PhaseResult(procId, phase, entry.status, elapsedMs, ""));
+                results.add(new PhaseResult(procId, phase, entry.status, elapsedMs, "",
+                        entry.heapBefore, entry.heapPeak, entry.opsCount, entry.outputCheck,
+                        entry.inputSha256, entry.generatorVersion));
                 if ("oom".equals(entry.status) || "crash".equals(entry.status)
                         || "timeout".equals(entry.status)) {
                     stoppedStatus = entry.status;
                 }
             } else {
                 stoppedStatus = timedOut ? "timeout" : exitCode == 3 ? "oom" : "crash";
-                results.add(new PhaseResult(procId, phase, stoppedStatus, "", ""));
+                results.add(new PhaseResult(procId, phase, stoppedStatus, "", "",
+                        "", "", "", "", "", ""));
             }
         }
         return results;
@@ -184,14 +227,28 @@ public final class Runner {
         public final String status;
         public final String elapsedMs;
         public final String phaseNote;
+        public final String heapBefore;
+        public final String heapPeak;
+        public final String opsCount;
+        public final String outputCheck;
+        public final String inputSha256;
+        public final String generatorVersion;
 
         private PhaseResult(String procId, String phase, String status,
-                String elapsedMs, String phaseNote) {
+                String elapsedMs, String phaseNote, String heapBefore, String heapPeak,
+                String opsCount, String outputCheck, String inputSha256,
+                String generatorVersion) {
             this.procId = procId;
             this.phase = phase;
             this.status = status;
             this.elapsedMs = elapsedMs;
             this.phaseNote = phaseNote;
+            this.heapBefore = heapBefore;
+            this.heapPeak = heapPeak;
+            this.opsCount = opsCount;
+            this.outputCheck = outputCheck;
+            this.inputSha256 = inputSha256;
+            this.generatorVersion = generatorVersion;
         }
 
         /** Tạo run_id duy nhất từ proc_id và tên pha. */

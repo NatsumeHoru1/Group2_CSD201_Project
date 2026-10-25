@@ -165,12 +165,19 @@ public final class RunnerPhaseTest {
     /** Xác nhận parser bỏ qua dòng cuối phase log không có newline kết thúc. */
     private static void testTruncatedLog(Path root) throws Exception {
         PhaseLog log = new PhaseLog("truncated_test", root);
-        log.append("build", "ok", 1.25);
-        Files.write(log.path(), "present\tok\t2.500".getBytes(StandardCharsets.UTF_8),
+        log.append("build", "ok", "1.250", "10", "20", "3", "4",
+                "0123456789abcdef", "1.0");
+        Files.write(log.path(),
+                "present\tok\t2.500\t11\t21\t4\t5\tfedcba9876543210\t1.0"
+                        .getBytes(StandardCharsets.UTF_8),
                 java.nio.file.StandardOpenOption.APPEND);
         List<PhaseLog.Entry> entries = log.readCompleted();
         assertEquals(1, entries.size(), "số dòng log hoàn chỉnh");
         assertEquals("build", entries.get(0).phase, "pha hoàn chỉnh");
+        assertEquals("10", entries.get(0).heapBefore, "heap_before trong TSV");
+        assertEquals("3", entries.get(0).opsCount, "ops_count trong TSV");
+        assertEquals("4", entries.get(0).outputCheck, "output_check trong TSV");
+        assertEquals("0123456789abcdef", entries.get(0).inputSha256, "hash trong TSV");
     }
 
     /** Chạy runner vào CSV riêng của test và xác nhận kết quả tiến trình. */

@@ -112,4 +112,47 @@ public final class Generator {
             throw new RuntimeException("Hệ thống thiếu thuật toán SHA-256", e);
         }
     }
+
+    /**
+     * Tính SHA-256 nối tiếp hai mảng theo thứ tự Big-Endian mà không ghép mảng.
+     */
+    public static String computeSHA256(long[] first, long[] second) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            updateDigest(md, first);
+            updateDigest(md, second);
+            byte[] digest = md.digest();
+            StringBuilder result = new StringBuilder(digest.length * 2);
+            for (int i = 0; i < digest.length; i++) {
+                result.append(String.format("%02x", digest[i] & 0xFF));
+            }
+            return result.toString();
+        } catch (NoSuchAlgorithmException exception) {
+            throw new RuntimeException("Hệ thống thiếu thuật toán SHA-256", exception);
+        }
+    }
+
+    /** Đưa byte Big-Endian của một mảng khóa vào cùng MessageDigest theo khối. */
+    private static void updateDigest(MessageDigest digest, long[] keys) {
+        byte[] buffer = new byte[8192];
+        int pointer = 0;
+        for (int i = 0; i < keys.length; i++) {
+            long value = keys[i];
+            buffer[pointer++] = (byte) (value >>> 56);
+            buffer[pointer++] = (byte) (value >>> 48);
+            buffer[pointer++] = (byte) (value >>> 40);
+            buffer[pointer++] = (byte) (value >>> 32);
+            buffer[pointer++] = (byte) (value >>> 24);
+            buffer[pointer++] = (byte) (value >>> 16);
+            buffer[pointer++] = (byte) (value >>> 8);
+            buffer[pointer++] = (byte) value;
+            if (pointer == buffer.length) {
+                digest.update(buffer, 0, buffer.length);
+                pointer = 0;
+            }
+        }
+        if (pointer > 0) {
+            digest.update(buffer, 0, pointer);
+        }
+    }
 }

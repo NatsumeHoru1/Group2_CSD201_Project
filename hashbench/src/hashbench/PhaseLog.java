@@ -35,6 +35,14 @@ public final class PhaseLog {
 
     /** Mở file ở chế độ append, ghi xong flush và đóng ngay. */
     public void append(String phase, String status, double elapsedMs) throws IOException {
+        append(phase, status, String.format(Locale.US, "%.3f", Double.valueOf(elapsedMs)),
+                "", "", "", "", "", "");
+    }
+
+    /** Ghi toàn bộ số liệu pha vào một dòng TSV và đóng file ngay. */
+    public void append(String phase, String status, String elapsedMs, String heapBefore,
+            String heapPeak, String opsCount, String outputCheck, String inputSha256,
+            String generatorVersion) throws IOException {
         if (phase == null || phase.length() == 0 || phase.indexOf('\t') >= 0
                 || phase.indexOf('\n') >= 0 || phase.indexOf('\r') >= 0) {
             throw new IllegalArgumentException("Tên pha không hợp lệ");
@@ -42,8 +50,22 @@ public final class PhaseLog {
         if (!isAllowedStatus(status)) {
             throw new IllegalArgumentException("Trạng thái không hợp lệ: " + status);
         }
-        if (Double.isNaN(elapsedMs) || Double.isInfinite(elapsedMs) || elapsedMs < 0.0) {
-            throw new IllegalArgumentException("elapsed_ms phải là số hữu hạn không âm");
+        if (elapsedMs == null || heapBefore == null || heapPeak == null || opsCount == null
+                || outputCheck == null || inputSha256 == null || generatorVersion == null) {
+            throw new IllegalArgumentException("Trường phase log không được null");
+        }
+        if (elapsedMs.length() > 0) {
+            try {
+                double elapsed = Double.parseDouble(elapsedMs);
+                if (Double.isNaN(elapsed) || Double.isInfinite(elapsed) || elapsed < 0.0) {
+                    throw new NumberFormatException("elapsed_ms không hợp lệ");
+                }
+            } catch (NumberFormatException exception) {
+                throw new IllegalArgumentException("elapsed_ms không hợp lệ", exception);
+            }
+        }
+        if ("ok".equals(status) && elapsedMs.length() == 0) {
+            throw new IllegalArgumentException("Pha ok phải có elapsed_ms");
         }
 
         try (BufferedWriter writer = Files.newBufferedWriter(
@@ -56,10 +78,25 @@ public final class PhaseLog {
             writer.write('\t');
             writer.write(status);
             writer.write('\t');
-            writer.write(String.format(Locale.US, "%.3f", Double.valueOf(elapsedMs)));
+            writer.write(elapsedMs);
+            writeField(writer, heapBefore);
+            writeField(writer, heapPeak);
+            writeField(writer, opsCount);
+            writeField(writer, outputCheck);
+            writeField(writer, inputSha256);
+            writeField(writer, generatorVersion);
             writer.newLine();
             writer.flush();
         }
+    }
+
+    /** Ghi một trường TSV đã được ngăn cách bằng tab. */
+    private static void writeField(BufferedWriter writer, String value) throws IOException {
+        if (value.indexOf('\t') >= 0 || value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0) {
+            throw new IllegalArgumentException("Trường phase log không hợp lệ");
+        }
+        writer.write('\t');
+        writer.write(value);
     }
 
     /** Đọc những dòng kết thúc bằng newline và bỏ qua phần cuối chưa hoàn chỉnh. */
@@ -84,16 +121,21 @@ public final class PhaseLog {
                 continue;
             }
             String[] fields = line.split("\t", -1);
-            if (fields.length != 3 || fields[0].length() == 0
+            if (fields.length != 9 || fields[0].length() == 0
                     || !isAllowedStatus(fields[1])) {
                 throw new IOException("Dòng phase log không hợp lệ: " + line);
             }
             try {
-                double elapsedMs = Double.parseDouble(fields[2]);
-                if (Double.isNaN(elapsedMs) || Double.isInfinite(elapsedMs) || elapsedMs < 0.0) {
-                    throw new NumberFormatException("elapsed_ms không hợp lệ");
+                if (fields[2].length() > 0) {
+                    double elapsedMs = Double.parseDouble(fields[2]);
+                    if (Double.isNaN(elapsedMs) || Double.isInfinite(elapsedMs)
+                            || elapsedMs < 0.0) {
+                        throw new NumberFormatException("elapsed_ms không hợp lệ");
+                    }
+                } else if ("ok".equals(fields[1])) {
+                    throw new NumberFormatException("Pha ok thiếu elapsed_ms");
                 }
-                entries.add(new Entry(fields[0], fields[1], fields[2]));
+                entries.add(new Entry(fields));
             } catch (NumberFormatException exception) {
                 throw new IOException("elapsed_ms không hợp lệ trong phase log: " + line, exception);
             }
@@ -117,11 +159,23 @@ public final class PhaseLog {
         public final String phase;
         public final String status;
         public final String elapsedMs;
+        public final String heapBefore;
+        public final String heapPeak;
+        public final String opsCount;
+        public final String outputCheck;
+        public final String inputSha256;
+        public final String generatorVersion;
 
-        private Entry(String phase, String status, String elapsedMs) {
-            this.phase = phase;
-            this.status = status;
-            this.elapsedMs = elapsedMs;
+        private Entry(String[] fields) {
+            this.phase = fields[0];
+            this.status = fields[1];
+            this.elapsedMs = fields[2];
+            this.heapBefore = fields[3];
+            this.heapPeak = fields[4];
+            this.opsCount = fields[5];
+            this.outputCheck = fields[6];
+            this.inputSha256 = fields[7];
+            this.generatorVersion = fields[8];
         }
     }
 }

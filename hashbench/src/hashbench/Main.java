@@ -1,7 +1,10 @@
 package hashbench;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.nio.file.Paths;
 
 /** Điểm vào CLI cho runner, chế độ đếm và tự kiểm tra. */
 public final class Main {
@@ -18,13 +21,18 @@ public final class Main {
             return;
         }
 
-        countMode = "--count".equals(args[0]);
+        countMode = "--count".equals(args[0])
+                || ("--bench".equals(args[0]) && hasFlag(args, "--count"));
         if ("--selftest".equals(args[0])) {
             selfTest();
         } else if ("--run".equals(args[0]) || "--count".equals(args[0])) {
             runStub(args);
+        } else if ("--bench".equals(args[0])) {
+            runBench(args);
         } else if ("--phase-child".equals(args[0])) {
             runPhaseChild(args);
+        } else if ("--measure-child".equals(args[0])) {
+            runMeasureChild(args);
         } else {
             printUsage();
             System.exit(2);
@@ -89,6 +97,79 @@ public final class Main {
             }
         }
         return machineId;
+    }
+
+    /** Chạy cấu hình RQ1 từ CLI và in kết quả từng pha đã thu hoạch. */
+    private static void runBench(String[] args) throws Exception {
+        Map<String, String> options = parseOptions(args, 1);
+        boolean count = hasFlag(args, "--count");
+        String rq = required(options, "--rq");
+        String algo = required(options, "--algo");
+        String variant = required(options, "--variant");
+        String dataset = required(options, "--dataset");
+        int p = Integer.parseInt(required(options, "--p"));
+        double alpha = Double.parseDouble(required(options, "--alpha"));
+        long seed = Long.parseLong(required(options, "--seed"));
+        long queries = Long.parseLong(required(options, "--queries"));
+        int repeat = options.containsKey("--repeat")
+                ? Integer.parseInt(options.get("--repeat")) : 1;
+        String xmx = options.containsKey("--xmx") ? options.get("--xmx") : "2g";
+        int timeoutSec = options.containsKey("--timeout-sec")
+                ? Integer.parseInt(options.get("--timeout-sec")) : 60;
+        String machineId = options.containsKey("--machine-id")
+                ? options.get("--machine-id") : "";
+        String out = options.containsKey("--out")
+                ? options.get("--out") : "results/raw/dev/bench.csv";
+        String phases = options.get("--phases");
+        RunConfig config = new RunConfig(rq, algo, variant, dataset, 0L, p, alpha,
+                0, 0.0, 0.0, queries, seed, repeat, xmx, machineId, timeoutSec,
+                count, phases);
+        Runner.RunResult result = Runner.runWithCsv(
+                config, Paths.get(out), Paths.get("."));
+        for (Runner.PhaseResult phase : result.phases) {
+            System.out.println("phase=" + phase.phase
+                    + " status=" + phase.status
+                    + " elapsed_ms=" + phase.elapsedMs
+                    + " output_check=" + phase.outputCheck);
+        }
+    }
+
+    /** Phân tích cờ có hoặc không có giá trị theo dạng --name value. */
+    private static Map<String, String> parseOptions(String[] args, int start) {
+        Map<String, String> options = new HashMap<String, String>();
+        for (int i = start; i < args.length; i++) {
+            String name = args[i];
+            if ("--count".equals(name)) {
+                options.put(name, "true");
+            } else if (name.startsWith("--")) {
+                if (i + 1 >= args.length || args[i + 1].startsWith("--")) {
+                    throw new IllegalArgumentException(name + " cần giá trị");
+                }
+                options.put(name, args[++i]);
+            } else {
+                throw new IllegalArgumentException("Tham số không hợp lệ: " + name);
+            }
+        }
+        return options;
+    }
+
+    /** Trả về tham số bắt buộc hoặc báo rõ tên tham số bị thiếu. */
+    private static String required(Map<String, String> options, String name) {
+        String value = options.get(name);
+        if (value == null) {
+            throw new IllegalArgumentException("Thiếu tham số " + name);
+        }
+        return value;
+    }
+
+    /** Kiểm tra một cờ boolean có xuất hiện trong dòng lệnh hay không. */
+    private static boolean hasFlag(String[] args, String flag) {
+        for (int i = 0; i < args.length; i++) {
+            if (flag.equals(args[i])) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Chạy danh sách pha trong tiến trình con và ghi log sau từng pha. */
@@ -170,6 +251,103 @@ public final class Main {
             double elapsedMs = (System.nanoTime() - phaseStart) / 1000000.0;
             log.append(phase, "ok", elapsedMs);
         }
+    }
+
+    /** Sinh dữ liệu, làm nóng thuật toán rồi đo và log từng pha RQ1. */
+    private static void runMeasureChild(String[] args) throws Exception {
+        if (args.length < 3) {
+            throw new IllegalArgumentException(
+                    "Cú pháp: --measure-child <proc_id> --key value ... [--count]");
+        }
+        String procId = args[1];
+        Map<String, String> options = parseOptions(args, 2);
+        boolean childCount = options.containsKey("--count");
+        Main.countMode = childCount;
+        System.out.println("Counters.ON=" + Counters.ON);
+
+        String rq = required(options, "--rq");
+        String algo = required(options, "--algo");
+        String variant = required(options, "--variant");
+        String dataset = required(options, "--dataset");
+        int p = Integer.parseInt(required(options, "--p"));
+        double alpha = Double.parseDouble(required(options, "--alpha"));
+        long seed = Long.parseLong(required(options, "--seed"));
+        long queriesValue = Long.parseLong(required(options, "--queries"));
+        if (!"rq1a".equals(dataset) && !"rq1b".equals(dataset)) {
+            throw new IllegalArgumentException("Measure chỉ hỗ trợ rq1a/rq1b");
+        }
+        if (queriesValue < 0L || queriesValue > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("queries phải nằm trong giới hạn mảng Java");
+        }
+        int queries = (int) queriesValue;
+        List<String> phases = parsePhaseList(required(options, "--phases"));
+        PhaseLog log = new PhaseLog(procId);
+        Measure.Data data;
+        try {
+            data = Measure.buildData(seed, p, alpha, queries);
+            Measure.warmUp(algo, variant, p, alpha, seed ^ 0x6A09E667F3BCC909L,
+                    queries);
+            Counters.reset();
+        } catch (OutOfMemoryError error) {
+            appendFailure(log, phases.get(0), "oom", "", "");
+            System.err.println("OutOfMemoryError while preparing input: " + error.getMessage());
+            System.exit(3);
+            return;
+        } catch (Exception exception) {
+            System.err.println("Measure setup failed: " + exception.getMessage());
+            System.exit(1);
+            return;
+        }
+
+        HashIndex index = null;
+        for (String phase : phases) {
+            try {
+                if ("build".equals(phase)) {
+                    index = HashIndexFactory.create(algo, variant, p);
+                }
+                if (index == null) {
+                    throw new IllegalStateException("Pha build phải chạy trước query phase");
+                }
+                Measure.PhaseResult measured = Measure.runPhase(phase, index, data, childCount);
+                log.append(phase, "ok", measured.elapsedMs, measured.heapBefore,
+                        measured.heapPeak, measured.opsCount, measured.outputCheck,
+                        measured.inputSha256, measured.generatorVersion);
+            } catch (OutOfMemoryError error) {
+                appendFailure(log, phase, "oom", data.inputSha256, Measure.GENERATOR_VERSION);
+                System.err.println("OutOfMemoryError in phase " + phase + ": "
+                        + error.getMessage());
+                System.exit(3);
+                return;
+            } catch (Exception exception) {
+                appendFailure(log, phase, "crash", data.inputSha256, Measure.GENERATOR_VERSION);
+                System.err.println("Measure failed in phase " + phase + ": "
+                        + exception.getMessage());
+                System.exit(1);
+                return;
+            }
+        }
+    }
+
+    /** Ghi trạng thái pha lỗi với toàn bộ trường đo để trống. */
+    private static void appendFailure(PhaseLog log, String phase, String status,
+            String inputSha256, String generatorVersion) throws Exception {
+        log.append(phase, status, "", "", "", "", "", inputSha256, generatorVersion);
+    }
+
+    /** Tách pha CSV từ CLI và giới hạn chúng vào ba pha RQ1. */
+    private static List<String> parsePhaseList(String names) {
+        List<String> phases = new ArrayList<String>();
+        String[] parts = names.split(",", -1);
+        for (String phase : parts) {
+            if (!"build".equals(phase) && !"present".equals(phase) && !"absent".equals(phase)) {
+                throw new IllegalArgumentException("Pha RQ1 không hợp lệ: " + phase);
+            }
+            phases.add(phase);
+        }
+        if (phases.isEmpty()) {
+            throw new IllegalArgumentException("Danh sách pha không được rỗng");
+        }
+        return phases;
     }
 
     /** Kiểm tra thêm, tìm, xóa và kiểm tra lại khóa trong bảng stub. */
