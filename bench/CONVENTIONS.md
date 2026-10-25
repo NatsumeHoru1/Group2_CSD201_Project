@@ -30,4 +30,4 @@ CONVENTIONS.md (nháp)
 - LongSet dùng -1L làm ô rỗng.
 - Lượt --count ghi ops_count; số truy vấn nằm trong params (queries=...).
 - RQ3: mốc C thuộc {M, 2M, 4M}.
-- Seed: 3 seed cố định, commit vào repo (TV2 chọn giá trị).
+- Seed: 3 seed cố định được chốt bởi TV2: 1, 2, 3 (khai báo tại Generator.FIXED_SEEDS, lưu tại bench/seeds.txt).

@@ -10,6 +10,11 @@ import java.util.SplittableRandom;
  */
 public final class Generator {
 
+    /** 3 seed cố định được TV2 chốt dùng cho toàn bộ thí nghiệm (RQ1, RQ2, RQ3). */
+    public static final long[] FIXED_SEEDS = { 1L, 2L, 3L };
+
+    private static final char[] HEX_CHARS = "0123456789abcdef".toCharArray();
+
     private Generator() {
     }
 
@@ -47,93 +52,109 @@ public final class Generator {
     }
 
     /**
-     * Sinh bộ khóa dồn cụm (Clustered Keys) cho thí nghiệm RQ1.
-     * Tập trung vào một số bucket liền kề để gây va chạm cục bộ.
+     * Sinh bộ khóa dồn cụm (Clustered Keys) cho thí nghiệm RQ1 đúng đặc tả đề bài:
+     * - 10% số khóa có h(k) < M/64 (tập trung va chạm ở đầu bảng).
+     * - 90% số khóa còn lại phân bố đều trên toàn bảng.
      */
-    public static long[] generateClusteredKeys(long seed, int count, int p, int clusterCenter) {
+    public static long[] generateClusteredKeys(long seed, int count, int p) {
+        if (p < 1 || p > 30) {
+            throw new IllegalArgumentException("p phải nằm trong khoảng 1..30");
+        }
+        if (count < 0) {
+            throw new IllegalArgumentException("count phải >= 0");
+        }
         SplittableRandom rng = new SplittableRandom(seed);
         LongSet set = new LongSet(count);
         long[] keys = new long[count];
-        int i = 0;
-        int spread = Math.max(4, (1 << p) / 64); // Bán kính cụm
-        int mask = (1 << p) - 1;
 
-        while (i < count) {
+        int clusteredLimit = (1 << p) / 64;
+        if (clusteredLimit <= 0) {
+            clusteredLimit = 1;
+        }
+
+        int clusterCount = (int) Math.round(count * 0.10);
+        int i = 0;
+
+        // 10% khóa có h(k) < M / 64
+        while (i < clusterCount) {
             long k = rng.nextLong(Long.MAX_VALUE);
-            int h = Hashing.hash(k, p);
-            int dist = (h - clusterCenter + (1 << p)) & mask;
-            if (dist < spread) {
+            if (Hashing.hash(k, p) < clusteredLimit) {
                 if (set.add(k)) {
                     keys[i++] = k;
                 }
             }
         }
+
+        // 90% khóa còn lại phân bố đều trên toàn bảng
+        while (i < count) {
+            long k = rng.nextLong(Long.MAX_VALUE);
+            if (set.add(k)) {
+                keys[i++] = k;
+            }
+        }
+
         return keys;
     }
 
     /**
+     * Phiên bản tương thích nhận thêm clusterCenter (mặc định gom cụm ở đầu bảng h(k) < M/64).
+     */
+    public static long[] generateClusteredKeys(long seed, int count, int p, int clusterCenter) {
+        return generateClusteredKeys(seed, count, p);
+    }
+
+    /**
+     * Chuyển mảng byte sang chuỗi Hex dùng bảng ký tự tĩnh (tra cứu O(1), không dùng String.format).
+     */
+    public static String bytesToHex(byte[] bytes) {
+        char[] hexChars = new char[bytes.length * 2];
+        for (int i = 0; i < bytes.length; i++) {
+            int v = bytes[i] & 0xFF;
+            hexChars[i * 2] = HEX_CHARS[v >>> 4];
+            hexChars[i * 2 + 1] = HEX_CHARS[v & 0x0F];
+        }
+        return new String(hexChars);
+    }
+
+    /**
      * Tính SHA-256 của mảng khóa theo thứ tự Big-Endian, băm từng khối 8KB.
-     * Không cấp phát cả mảng byte khổng lồ để tránh tràn heap (OOM).
+     * Dùng bảng hex tra cứu nhanh thay vì String.format từng byte.
      */
     public static String computeSHA256(long[] keys) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] buffer = new byte[8192]; // Buffer 8KB
-            int bufPtr = 0;
-
-            for (int i = 0; i < keys.length; i++) {
-                long val = keys[i];
-                // Ghi 8 bytes theo thứ tự Big-Endian vào buffer
-                buffer[bufPtr++] = (byte) (val >>> 56);
-                buffer[bufPtr++] = (byte) (val >>> 48);
-                buffer[bufPtr++] = (byte) (val >>> 40);
-                buffer[bufPtr++] = (byte) (val >>> 32);
-                buffer[bufPtr++] = (byte) (val >>> 24);
-                buffer[bufPtr++] = (byte) (val >>> 16);
-                buffer[bufPtr++] = (byte) (val >>> 8);
-                buffer[bufPtr++] = (byte) val;
-
-                if (bufPtr == buffer.length) {
-                    md.update(buffer, 0, buffer.length);
-                    bufPtr = 0;
-                }
-            }
-            if (bufPtr > 0) {
-                md.update(buffer, 0, bufPtr);
-            }
-
-            byte[] digest = md.digest();
-            StringBuilder sb = new StringBuilder(digest.length * 2);
-            for (int b = 0; b < digest.length; b++) {
-                sb.append(String.format("%02x", digest[b] & 0xFF));
-            }
-            return sb.toString();
+            updateDigest(md, keys);
+            return bytesToHex(md.digest());
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("Hệ thống thiếu thuật toán SHA-256", e);
         }
     }
 
     /**
-     * Tính SHA-256 nối tiếp hai mảng theo thứ tự Big-Endian mà không ghép mảng.
+     * Tính SHA-256 nối tiếp hai mảng theo thứ tự Big-Endian mà không cần ghép mảng.
      */
     public static String computeSHA256(long[] first, long[] second) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
-            updateDigest(md, first);
-            updateDigest(md, second);
-            byte[] digest = md.digest();
-            StringBuilder result = new StringBuilder(digest.length * 2);
-            for (int i = 0; i < digest.length; i++) {
-                result.append(String.format("%02x", digest[i] & 0xFF));
+            if (first != null) {
+                updateDigest(md, first);
             }
-            return result.toString();
+            if (second != null) {
+                updateDigest(md, second);
+            }
+            return bytesToHex(md.digest());
         } catch (NoSuchAlgorithmException exception) {
             throw new RuntimeException("Hệ thống thiếu thuật toán SHA-256", exception);
         }
     }
 
-    /** Đưa byte Big-Endian của một mảng khóa vào cùng MessageDigest theo khối. */
+    /**
+     * Đưa byte Big-Endian của một mảng khóa vào MessageDigest theo khối 8KB để tránh cấp phát bộ nhớ lớn.
+     */
     private static void updateDigest(MessageDigest digest, long[] keys) {
+        if (keys == null || keys.length == 0) {
+            return;
+        }
         byte[] buffer = new byte[8192];
         int pointer = 0;
         for (int i = 0; i < keys.length; i++) {

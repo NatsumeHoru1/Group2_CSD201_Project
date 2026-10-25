@@ -19,7 +19,7 @@ Chữ ký factory hiện chưa có `tau`. TV3 đề xuất đổi thành `create
 
 ## Việc từng người
 
-* TV2: (1) `generateClusteredKeys` sai đặc tả: đề yêu cầu 10% khóa có h(k) < M/64, 90% còn lại phân bố đều; hiện 100% khóa nằm trong cụm. (2) `computeSHA256` dùng String.format từng byte, đổi sang bảng hex cho nhanh. (3) `verify\_env.bat`. (4) Chốt danh sách 3 seed và commit vào repo.
+* TV2: [HOÀN THÀNH] (1) Đã sửa generateClusteredKeys đúng đặc tả: 10% khóa có h(k) < M/64, 90% phân bố đều. (2) computeSHA256 đã chuyển sang bảng tra cứu hex tĩnh bytesToHex() O(1). (3) Đã thêm verify_env.bat kiểm tra môi trường Java 8 / bytecode 52 / GC / selftest. (4) Đã chốt 3 seed: 1, 2, 3 (khai báo tại Generator.FIXED_SEEDS và bench/seeds.txt).
 * TV3: `lp-tomb` (EMPTY/TOMB, put nhớ TOMB đầu tiên, dò tối đa M ô), rebuild theo tau. Đẩy lên main sớm nhất có thể và báo ngày giao.
 * TV4: test harness + oracle 10^6 thao tác + 6 ca bắt buộc, báo trạng thái. Workload RQ2/RQ3 phụ thuộc lp-tomb.
 * TV5: rh đã dùng được. Chạy `validate()` sau oracle 10^6 thao tác và báo kết quả. Hỗ trợ lp-backshift nếu TV6 chậm.
