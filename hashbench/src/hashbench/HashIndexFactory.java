@@ -16,8 +16,8 @@ package hashbench;
  * Ghi vào CSV: rh-noearly là algorithm=rh, variant=noearly (không dùng algorithm="rh-noearly").
  * Thuật toán chưa hỗ trợ thì ném IllegalArgumentException; mỗi cặp tự thêm nhánh `if` cho
  * thuật toán của mình. Hàm 3 tham số được giữ lại để không vỡ build của người khác; nó gọi
- * hàm 4 tham số với tau = vô hạn (không bao giờ rebuild). TODO(tau): lấy tau từ cấu hình
- * khi runner hỗ trợ tham số này.
+ * hàm 4 tham số với tau = vô hạn (không bao giờ rebuild). Overload 4 tham số chỉ
+ * áp dụng tau cho lp-tomb; các thuật toán khác bỏ qua.
  *
  * Bảng rh còn implement HashStats: dùng ((HashStats) index) để đọc dibMean(), dibMax()
  * (chỉ gọi ngoài vùng đo). Số lần dò đọc từ Counters.probeCount ở lượt --count.

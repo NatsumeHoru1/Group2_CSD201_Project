@@ -79,8 +79,9 @@ public final class RunConfig {
         if (p < 0 || p > 30 || n < 0L || queries < 0L || repeat < 1) {
             throw new IllegalArgumentException("p, n, queries hoặc repeat không hợp lệ");
         }
-        if (!isFinite(alpha) || !isFinite(tau) || !isFinite(load)) {
-            throw new IllegalArgumentException("alpha, tau và load phải hữu hạn");
+        if (!isFinite(alpha) || !isFinite(load) || Double.isNaN(tau) || tau < 0.0) {
+            throw new IllegalArgumentException(
+                    "alpha và load phải hữu hạn; tau phải không âm và không phải NaN");
         }
         if (xmx == null || !xmx.matches("[1-9][0-9]*[kKmMgG]?")) {
             throw new IllegalArgumentException("xmx phải có dạng số k/m/g hợp lệ");
@@ -212,7 +213,8 @@ public final class RunConfig {
     private static String buildParams(int p, double alpha, int c, double tau,
             double load, long queries) {
         return "p=" + p + ";alpha=" + Double.toString(alpha)
-                + ";c=" + c + ";tau=" + Double.toString(tau)
+                + ";c=" + c + ";tau=" + (Double.isInfinite(tau) ? "inf"
+                        : Double.toString(tau))
                 + ";load=" + Double.toString(load) + ";queries=" + queries;
     }
 

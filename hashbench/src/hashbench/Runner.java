@@ -96,6 +96,8 @@ public final class Runner {
             addArgument(command, "--dataset", config.dataset);
             addArgument(command, "--p", Integer.toString(config.p));
             addArgument(command, "--alpha", Double.toString(config.alpha));
+            addArgument(command, "--tau", Double.isInfinite(config.tau)
+                    ? "inf" : Double.toString(config.tau));
             addArgument(command, "--seed", Long.toString(config.seed));
             addArgument(command, "--queries", Long.toString(config.queries));
             addArgument(command, "--phases", join(phases, ","));
