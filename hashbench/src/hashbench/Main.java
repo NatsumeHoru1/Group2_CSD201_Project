@@ -273,6 +273,20 @@ public final class Main {
         double alpha = Double.parseDouble(required(options, "--alpha"));
         long seed = Long.parseLong(required(options, "--seed"));
         long queriesValue = Long.parseLong(required(options, "--queries"));
+        String sleepPhase = null;
+        long sleepSeconds = 0L;
+        if (options.containsKey("--sleep-phase")) {
+            String[] sleep = options.get("--sleep-phase").split(":", -1);
+            if (sleep.length != 2 || sleep[0].length() == 0) {
+                throw new IllegalArgumentException(
+                        "--sleep-phase phải có dạng phase:seconds");
+            }
+            sleepPhase = sleep[0];
+            sleepSeconds = Long.parseLong(sleep[1]);
+            if (sleepSeconds < 0L || sleepSeconds > Long.MAX_VALUE / 1000L) {
+                throw new IllegalArgumentException("Số giây sleep không hợp lệ");
+            }
+        }
         if (!"rq1a".equals(dataset) && !"rq1b".equals(dataset)) {
             throw new IllegalArgumentException("Measure chỉ hỗ trợ rq1a/rq1b");
         }
@@ -302,6 +316,10 @@ public final class Main {
         HashIndex index = null;
         for (String phase : phases) {
             try {
+                if (phase.equals(sleepPhase)) {
+                    // chỉ dùng cho test, không dùng khi đo
+                    Thread.sleep(sleepSeconds * 1000L);
+                }
                 if ("build".equals(phase)) {
                     index = HashIndexFactory.create(algo, variant, p);
                 }
