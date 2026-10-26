@@ -122,7 +122,7 @@ public final class MeasureChildTest {
     /** Ép timeout ở input/workload lớn, rồi xác minh log hoàn tất và pha chưa chạy. */
     private static void testTimeoutHarvesting(Path root) throws Exception {
         Files.createDirectories(root);
-        RunConfig config = config("rh", "base", 10, 0.75, 50000000, 7L, false, 2);
+        RunConfig config = config("rh", "base", 10, 0.75, 25000000, 7L, false, 2);
         Runner.RunResult result = run(config, root.resolve("timeout.csv"), root);
         assertTrue(result.timedOut, "cấu hình lớn phải timeout");
         List<String[]> rows = readCsv(root.resolve("timeout.csv"));
