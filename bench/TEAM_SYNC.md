@@ -24,6 +24,15 @@ Chữ ký factory hiện chưa có `tau`. TV3 đề xuất đổi thành `create
 * TV4: test harness + oracle 10^6 thao tác + 6 ca bắt buộc, báo trạng thái. Workload RQ2/RQ3 phụ thuộc lp-tomb.
 * TV5: rh đã dùng được. Chạy `validate()` sau oracle 10^6 thao tác và báo kết quả. Hỗ trợ lp-backshift nếu TV6 chậm.
 * TV6: `lp-backshift` (ghi rõ Algorithm R hay chèn lại cụm vào params), validator CSV theo 32 cột trong `CsvSchema.java`.
+  Đã xong (25/10): `LinearProbingBackshiftTable` (dò mở tuyến tính + dịch lùi cụm theo
+  Algorithm R của Knuth, không tombstone), đã cắm vào `HashIndexFactory` với
+  `algo=lp-backshift, variant=base`. Cột params ghi thêm `backshift=knuth-r` (do
+  `CsvParams.augment()` nối thêm, không sửa cặp có sẵn).
+  Validator CSV: `CsvValidator.java`, chạy
+  `java -cp hashbench\out hashbench.CsvValidator <file.csv> [...]` (exit 0 = PASS,
+  1 = có vi phạm). Test: `LpBackshiftSelfTest` (oracle 10^6 thao tác trên 6 cấu
+  hình, 6 ca bắt buộc + ca xóa giữa cụm quấn vòng, bộ đếm ô đã xem, validator).
+  Lệnh đo RQ1 cho lp-backshift xem `bench/README.md`.
 
 ## Quy ước đang áp dụng (bản nháp bench/CONVENTIONS.md; ai thấy sai báo ngay)
 
