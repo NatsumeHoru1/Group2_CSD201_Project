@@ -119,34 +119,31 @@ public final class MeasureChildTest {
                 "present probes trung bình ngoài khoảng 1..10: " + averagePresent);
     }
 
-    /** Ép timeout ở input/workload lớn, rồi xác minh log hoàn tất và pha chưa chạy. */
+    /** Dùng hook sleep để timeout luôn xảy ra trong pha chỉ định, không phụ thuộc tốc độ máy. */
     private static void testTimeoutHarvesting(Path root) throws Exception {
         Files.createDirectories(root);
-        RunConfig config = config("rh", "base", 10, 0.75, 25000000, 7L, false, 2);
+        RunConfig config = config("rh", "base", 10, 0.75, 20000, 7L, false, 10)
+                .withSleepPhase("present", 60L);
         Runner.RunResult result = run(config, root.resolve("timeout.csv"), root);
-        assertTrue(result.timedOut, "cấu hình lớn phải timeout");
+        assertTrue(result.timedOut, "sleep ở present phải timeout");
         List<String[]> rows = readCsv(root.resolve("timeout.csv"));
         assertEquals(PHASES.length + 1, rows.size(), "mọi pha phải được thu hoạch");
-        int firstIncomplete = -1;
-        int completed = 0;
-        for (int i = 0; i < PHASES.length; i++) {
-            String[] row = rows.get(i + 1);
-            assertEquals(PHASES[i], row[CsvSchema.PHASE_INDEX], "thứ tự timeout pha");
-            if ("ok".equals(row[CsvSchema.STATUS_INDEX])) {
-                assertTrue(firstIncomplete < 0, "không được có pha ok sau pha dở");
-                completed++;
-            } else if (firstIncomplete < 0) {
-                firstIncomplete = i;
-                assertEquals("timeout", row[CsvSchema.STATUS_INDEX], "status pha timeout");
-                assertEquals("", row[CsvSchema.ELAPSED_MS_INDEX], "elapsed timeout");
-            } else {
-                assertEquals("timeout", row[CsvSchema.STATUS_INDEX], "status pha sau timeout");
-                assertEquals("not_started", row[CsvSchema.PHASE_NOTE_INDEX],
-                        "pha sau timeout chưa bắt đầu");
-            }
-        }
-        assertTrue(firstIncomplete >= 0, "phải có ít nhất một pha timeout");
-        assertTrue(completed > 0, "phải thu hoạch được pha đã hoàn thành trước timeout");
+        String[] build = rows.get(1);
+        String[] present = rows.get(2);
+        String[] absent = rows.get(3);
+        assertEquals("build", build[CsvSchema.PHASE_INDEX], "pha build");
+        assertEquals("ok", build[CsvSchema.STATUS_INDEX], "build phải hoàn tất");
+        assertMatches("[0-9]+\\.[0-9]{3}", build[CsvSchema.ELAPSED_MS_INDEX],
+                "elapsed build");
+        assertEquals("present", present[CsvSchema.PHASE_INDEX], "pha present");
+        assertEquals("timeout", present[CsvSchema.STATUS_INDEX], "present phải timeout");
+        assertEquals("", present[CsvSchema.ELAPSED_MS_INDEX], "elapsed present timeout");
+        assertEquals("", present[CsvSchema.PHASE_NOTE_INDEX], "present phase_note");
+        assertEquals("absent", absent[CsvSchema.PHASE_INDEX], "pha absent");
+        assertEquals("timeout", absent[CsvSchema.STATUS_INDEX], "absent sau timeout");
+        assertEquals("", absent[CsvSchema.ELAPSED_MS_INDEX], "elapsed absent");
+        assertEquals("not_started", absent[CsvSchema.PHASE_NOTE_INDEX],
+                "absent chưa bắt đầu");
     }
 
     /** Tạo cấu hình RQ1 riêng cho từng lượt test. */

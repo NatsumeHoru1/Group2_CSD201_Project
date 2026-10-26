@@ -99,6 +99,10 @@ public final class Runner {
             addArgument(command, "--seed", Long.toString(config.seed));
             addArgument(command, "--queries", Long.toString(config.queries));
             addArgument(command, "--phases", join(phases, ","));
+            if (config.sleepPhase != null) {
+                addArgument(command, "--sleep-phase",
+                        config.sleepPhase + ":" + config.sleepSeconds);
+            }
             if (config.countMode) {
                 command.add("--count");
             }
