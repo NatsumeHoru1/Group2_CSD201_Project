@@ -74,9 +74,17 @@ public final class MeasureChildTest {
         RunConfig config = config("rh", "base", 10, 0.75, 20000, 1L, false, 30);
         Measure.Data data = Measure.buildData(config.seed, config.p, config.alpha,
                 (int) config.queries);
-        Map<Long, Integer> oracle = new HashMap<Long, Integer>();
+        Map<String, Integer> oracle = new HashMap<String, Integer>();
+        Map<String, String> presentObjects = new HashMap<String, String>();
         for (int i = 0; i < data.present.length; i++) {
-            oracle.put(Long.valueOf(data.present[i]), Integer.valueOf(i + 1));
+            oracle.put(data.present[i], Integer.valueOf(i + 1));
+            presentObjects.put(data.present[i], data.present[i]);
+        }
+        for (int i = 0; i < data.presentQueries.length; i++) {
+            String query = data.presentQueries[i];
+            assertTrue(oracle.containsKey(query), "present query phải nằm trong present");
+            assertTrue(query != presentObjects.get(query),
+                    "present query phải là object String độc lập");
         }
         long expectedPresent = expectedCheck(data.presentQueries, oracle);
         long expectedAbsent = expectedCheck(data.absentQueries, oracle);
@@ -203,10 +211,10 @@ public final class MeasureChildTest {
     }
 
     /** Tính oracle theo quy ước giá trị tìm thấy cộng một cho mỗi miss. */
-    private static long expectedCheck(long[] queries, Map<Long, Integer> oracle) {
+    private static long expectedCheck(String[] queries, Map<String, Integer> oracle) {
         long total = 0L;
         for (int i = 0; i < queries.length; i++) {
-            Integer value = oracle.get(Long.valueOf(queries[i]));
+            Integer value = oracle.get(queries[i]);
             total += value == null ? 1L : value.intValue();
         }
         return total;

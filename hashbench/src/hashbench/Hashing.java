@@ -15,11 +15,16 @@ public final class Hashing {
     }
 
     /**
-     * Hàm băm Fibonacci 64-bit sang bảng có kích thước M = 2^p.
-     * Công thức: (int) ((key * FIBONACCI_CONSTANT) >>> (64 - p))
+     * Băm khóa String bằng hashCode rồi nhân hằng số Fibonacci 64-bit.
      */
-    public static int hash(long key, int p) {
-        return (int) ((key * FIBONACCI_CONSTANT) >>> (64 - p));
+    public static int hash(String key, int p) {
+        if (key == null) {
+            throw new IllegalArgumentException("key không được null");
+        }
+        if (p < 1 || p > 30) {
+            throw new IllegalArgumentException("p phải nằm trong khoảng 1..30");
+        }
+        return (int) (((long) key.hashCode() * FIBONACCI_CONSTANT) >>> (64 - p));
     }
 
     /**
@@ -30,19 +35,21 @@ public final class Hashing {
     }
 
     /**
-     * Tìm một khóa long >= 0 có chỉ số băm home đúng bằng targetHome.
-     * Dùng cho TV3, TV4, TV5 khi dựng 6 ca kiểm thử bắt buộc.
+     * Tìm một khóa String có chỉ số băm home đúng bằng targetHome.
      */
-    public static long findKeyWithHome(int targetHome, int p, SplittableRandom rng) {
+    public static String findKeyWithHome(int targetHome, int p, SplittableRandom rng) {
         if (p < 1 || p > 30) {
             throw new IllegalArgumentException("p phải nằm trong khoảng 1..30");
+        }
+        if (rng == null) {
+            throw new IllegalArgumentException("rng không được null");
         }
         int capacity = 1 << p;
         if (targetHome < 0 || targetHome >= capacity) {
             throw new IllegalArgumentException("targetHome phải nằm trong [0, " + (capacity - 1) + "]");
         }
         while (true) {
-            long candidate = rng.nextLong(Long.MAX_VALUE); // Khóa luôn >= 0
+            String candidate = KeyCodec.encode(rng.nextLong(KeyCodec.SPACE));
             if (hash(candidate, p) == targetHome) {
                 return candidate;
             }

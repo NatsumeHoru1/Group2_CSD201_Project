@@ -22,8 +22,10 @@ public final class TestUtil {
     }
 
     /** Giá trị xác định theo khóa, không bao giờ là NOT_FOUND. */
-    public static int valueOf(long key) {
-        long mixed = key ^ (key >>> 32);
+    public static int valueOf(String key) {
+        if (key == null) throw new IllegalArgumentException("key không được null");
+        long id = hashbench.KeyCodec.decode(key);
+        long mixed = id ^ (id >>> 32);
         int v = (int) (mixed & 0x7fffffffL);
         return v == 0 ? 1 : v;
     }

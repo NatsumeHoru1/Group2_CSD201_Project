@@ -81,7 +81,8 @@ public final class CsvWriter implements Closeable {
         values[CsvSchema.VARIANT_INDEX] = config.variant;
         values[CsvSchema.DATASET_INDEX] = config.dataset;
         values[CsvSchema.N_INDEX] = Long.toString(config.n);
-        values[CsvSchema.PARAMS_INDEX] = CsvParams.augment(config.algo, config.params);
+        values[CsvSchema.PARAMS_INDEX] = CsvParams.augment(config.algo, config.params)
+                + ";keytype=str12";
         values[CsvSchema.SEED_INDEX] = Long.toString(config.seed);
         values[CsvSchema.REPEAT_INDEX] = Integer.toString(config.repeat);
         if ("ok".equals(result.status)) {

@@ -11,7 +11,7 @@ public final class ControlTable {
 
     public static HashIndex build(Registry.Factory f, int p, Workload w) {
         HashIndex t = f.create(p);
-        for (long k : w.liveKeys) {
+        for (String k : w.liveKeys) {
             if (t.put(k, Workload.valueOf(k)) == HashIndex.FULL) {
                 throw new IllegalStateException("bảng đối chứng bị FULL");
             }

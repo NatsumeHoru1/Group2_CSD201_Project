@@ -15,10 +15,10 @@ public final class QueryBench {
 
     private QueryBench() {}
 
-    public static Timing timeGets(HashIndex t, long[] q) {
+    public static Timing timeGets(HashIndex t, String[] q) {
         long checksum = 0L;
         long start = System.nanoTime();
-        for (long key : q) {
+        for (String key : q) {
             int v = t.get(key);
             checksum += (v == HashIndex.NOT_FOUND) ? 1L : (long) v + 1L;
         }

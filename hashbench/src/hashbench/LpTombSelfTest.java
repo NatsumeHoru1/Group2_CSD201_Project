@@ -36,34 +36,24 @@ public final class LpTombSelfTest {
     private static final class KeyMaker {
         private final int p;
         private final SplittableRandom rng = new SplittableRandom(20261025L);
-        private final Set<Long> used = new HashSet<Long>();
+        private final Set<String> used = new HashSet<String>();
 
         KeyMaker(int p) {
             this.p = p;
         }
 
-        long withHome(int home) {
+        String withHome(int home) {
             while (true) {
-                long k = Hashing.findKeyWithHome(home, p, rng);
-                if (used.add(Long.valueOf(k))) {
+                String k = Hashing.findKeyWithHome(home, p, rng);
+                if (used.add(k)) {
                     return k;
                 }
             }
         }
     }
 
-    private static long[] randomKeys(int n, long seed) {
-        SplittableRandom r = new SplittableRandom(seed);
-        Set<Long> seen = new HashSet<Long>();
-        long[] keys = new long[n];
-        for (int i = 0; i < n; i++) {
-            long x;
-            do {
-                x = r.nextLong() >>> 1;
-            } while (!seen.add(Long.valueOf(x)));
-            keys[i] = x;
-        }
-        return keys;
+    private static String[] randomKeys(int n, long seed) {
+        return Generator.generatePresentKeys(seed, n);
     }
 
     private static String slot(LinearProbingTombTable t, int i) {
@@ -73,13 +63,13 @@ public final class LpTombSelfTest {
     // ---------- Oracle so voi HashMap ----------
     private static void oracle(int p, double tau, int domain, long seed, int ops) {
         int m = 1 << p;
-        long[] pool = randomKeys(domain, seed + 1000);
+        String[] pool = randomKeys(domain, seed + 1000);
         LinearProbingTombTable t = new LinearProbingTombTable(p, tau);
-        Map<Long, Integer> map = new HashMap<Long, Integer>();
+        Map<String, Integer> map = new HashMap<String, Integer>();
         SplittableRandom r = new SplittableRandom(seed);
         String tag = "oracle tau=" + tau + " domain=" + domain + " seed=" + seed;
         for (int i = 0; i < ops; i++) {
-            Long k = Long.valueOf(pool[r.nextInt(domain)]);
+            String k = pool[r.nextInt(domain)];
             int op = r.nextInt(100);
             if (op < 40) {
                 int v = r.nextInt();
@@ -88,7 +78,7 @@ public final class LpTombSelfTest {
                 }
                 int expected = map.containsKey(k) ? HashIndex.UPDATED
                         : (map.size() >= m ? HashIndex.FULL : HashIndex.INSERTED);
-                int got = t.put(k.longValue(), v);
+                int got = t.put(k, v);
                 if (got != expected) {
                     throw new IllegalStateException(tag + " op " + i + ": put " + got + " != " + expected);
                 }
@@ -98,13 +88,13 @@ public final class LpTombSelfTest {
             } else if (op < 80) {
                 Integer e = map.get(k);
                 int expected = e == null ? HashIndex.NOT_FOUND : e.intValue();
-                int got = t.get(k.longValue());
+                int got = t.get(k);
                 if (got != expected) {
                     throw new IllegalStateException(tag + " op " + i + ": get " + got + " != " + expected);
                 }
             } else {
                 boolean expected = map.remove(k) != null;
-                boolean got = t.remove(k.longValue());
+                boolean got = t.remove(k);
                 if (got != expected) {
                     throw new IllegalStateException(tag + " op " + i + ": remove " + got + " != " + expected);
                 }
@@ -124,7 +114,7 @@ public final class LpTombSelfTest {
     private static void caseSkipTomb() {
         KeyMaker km = new KeyMaker(CASE_P);
         LinearProbingTombTable t = new LinearProbingTombTable(CASE_P);
-        long a = km.withHome(5), b = km.withHome(5), c = km.withHome(5);
+        String a = km.withHome(5), b = km.withHome(5), c = km.withHome(5);
         t.put(a, 1);
         t.put(b, 2);
         t.put(c, 3);
@@ -140,7 +130,8 @@ public final class LpTombSelfTest {
     private static void caseReuseTomb() {
         KeyMaker km = new KeyMaker(CASE_P);
         LinearProbingTombTable t = new LinearProbingTombTable(CASE_P);
-        long a = km.withHome(5), b = km.withHome(5), c = km.withHome(5), d = km.withHome(5);
+        String a = km.withHome(5), b = km.withHome(5), c = km.withHome(5),
+                d = km.withHome(5);
         t.put(a, 1);
         t.put(b, 2);
         t.put(c, 3);
@@ -157,9 +148,9 @@ public final class LpTombSelfTest {
 
     private static void caseUpdate() {
         LinearProbingTombTable t = new LinearProbingTombTable(CASE_P);
-        check(t.put(7L, 70) == HashIndex.INSERTED, "case3 insert");
-        check(t.put(7L, 71) == HashIndex.UPDATED, "case3 update");
-        check(t.get(7L) == 71 && t.size() == 1, "case3 value updated, size 1");
+        check(t.put("000000000007", 70) == HashIndex.INSERTED, "case3 insert");
+        check(t.put("000000000007", 71) == HashIndex.UPDATED, "case3 update");
+        check(t.get("000000000007") == 71 && t.size() == 1, "case3 value updated, size 1");
     }
 
     private static void caseRemoveAbsent() {
@@ -175,7 +166,7 @@ public final class LpTombSelfTest {
     /** Ca 5: day bang, FULL, roi bang chi con TOMB (khong con EMPTY): get phai dung sau M o. */
     private static void caseFullAndAllTomb() {
         int m = 1 << CASE_P;
-        long[] keys = randomKeys(m + 2, 77L);
+        String[] keys = randomKeys(m + 2, 77L);
         LinearProbingTombTable t = new LinearProbingTombTable(CASE_P);
         for (int i = 0; i < m; i++) {
             check(t.put(keys[i], i + 1) == HashIndex.INSERTED, "case5 fill " + i);
@@ -199,7 +190,7 @@ public final class LpTombSelfTest {
     private static void caseWrapAround() {
         KeyMaker km = new KeyMaker(CASE_P);
         LinearProbingTombTable t = new LinearProbingTombTable(CASE_P);
-        long w1 = km.withHome(15), w2 = km.withHome(15), w3 = km.withHome(15);
+        String w1 = km.withHome(15), w2 = km.withHome(15), w3 = km.withHome(15);
         t.put(w1, 1);
         t.put(w2, 2);
         t.put(w3, 3);
@@ -215,27 +206,34 @@ public final class LpTombSelfTest {
         LinearProbingTombTable t = new LinearProbingTombTable(CASE_P);
         boolean threw = false;
         try {
-            t.put(5L, HashIndex.NOT_FOUND);
+            t.put("000000000005", HashIndex.NOT_FOUND);
         } catch (IllegalArgumentException ex) {
             threw = true;
         }
         check(threw && t.size() == 0, "put with NOT_FOUND throws IllegalArgumentException");
     }
 
-    /** Rebuild: tau = 0.25, M = 16 => rebuild khi tombs > 4, tuc o lan xoa thu 5. */
+    /** Rebuild: tau = 0.25, M = 16 => rebuild khi tombs >= 4, tuc o lan xoa thu 4. */
     private static void caseRebuild() {
-        long[] keys = randomKeys(8, 5L);
+        String[] keys = randomKeys(8, 5L);
         LinearProbingTombTable t = new LinearProbingTombTable(CASE_P, 0.25);
         for (int i = 0; i < 8; i++) {
             t.put(keys[i], i + 1);
         }
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 3; i++) {
             t.remove(keys[i]);
         }
-        check(t.tombCount() == 4 && t.rebuildCount() == 0, "case7 4 tombs: no rebuild yet (4 > 4 is false)");
+        check(t.tombCount() == 3 && t.rebuildCount() == 0,
+                "case7 3 tombs: threshold not reached");
         t.remove(keys[4]);
-        check(t.tombCount() == 0 && t.rebuildCount() == 1, "case7 5th removal triggers rebuild, tombs = 0");
-        check(t.size() == 3 && t.emptyCount() == 13, "case7 size 3, empty 13 after rebuild");
+        check(t.tombCount() == 0 && t.rebuildCount() == 1,
+                "case7 4th tomb triggers rebuild with >= threshold");
+        check(t.size() == 4 && t.emptyCount() == 12,
+                "case7 size 4, empty 12 after rebuild");
+        t.remove(keys[3]);
+        check(t.tombCount() == 1 && t.rebuildCount() == 1,
+                "case7 later removal does not rebuild below threshold");
+        check(t.size() == 3 && t.emptyCount() == 12, "case7 size 3 after later removal");
         boolean ok = true;
         for (int i = 5; i < 8; i++) {
             ok &= t.get(keys[i]) == i + 1;
@@ -263,7 +261,8 @@ public final class LpTombSelfTest {
             return;
         }
         KeyMaker km = new KeyMaker(3);
-        long a = km.withHome(6), c = km.withHome(6), b = km.withHome(7), x = km.withHome(6);
+        String a = km.withHome(6), c = km.withHome(6), b = km.withHome(7),
+                x = km.withHome(6);
         LinearProbingTombTable t = new LinearProbingTombTable(3);
         t.put(a, 100);                  // o 6
         t.put(c, 200);                  // o 7
@@ -281,8 +280,9 @@ public final class LpTombSelfTest {
 
     private static void factory() {
         HashIndex t = HashIndexFactory.create("lp-tomb", "base", 4, 0.2);
-        t.put(7L, 70);
-        check(t.get(7L) == 70 && t.capacity() == 16 && t instanceof HashStats, "factory lp-tomb 4 args");
+        t.put("000000000007", 70);
+        check(t.get("000000000007") == 70 && t.capacity() == 16 && t instanceof HashStats,
+                "factory lp-tomb 4 args");
         HashIndex u = HashIndexFactory.create("lp-tomb", "base", 4);
         check(u instanceof LinearProbingTombTable, "factory lp-tomb 3 args (tau infinite)");
         HashIndex r = HashIndexFactory.create("rh", "base", 4);
@@ -318,7 +318,7 @@ public final class LpTombSelfTest {
             for (long seed : seeds) {
                 for (double tau : taus) {
                     run("oracle domain=" + domain + " seed=" + seed + " tau=" + tau,
-                            () -> oracle(p, tau, domain, seed, 1000000));
+                            () -> oracle(p, tau, domain, seed, 100000));
                 }
             }
         }

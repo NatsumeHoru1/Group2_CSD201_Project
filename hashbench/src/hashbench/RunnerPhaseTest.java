@@ -314,7 +314,8 @@ public final class RunnerPhaseTest {
             assertEquals(config.variant, columns[CsvSchema.VARIANT_INDEX], "variant");
             assertEquals(config.dataset, columns[CsvSchema.DATASET_INDEX], "dataset");
             assertEquals(Long.toString(config.n), columns[CsvSchema.N_INDEX], "n");
-            assertEquals(config.params, columns[CsvSchema.PARAMS_INDEX], "params");
+            assertEquals(config.params + ";keytype=str12",
+                    columns[CsvSchema.PARAMS_INDEX], "params");
             assertEquals(Long.toString(config.seed), columns[CsvSchema.SEED_INDEX], "seed");
             assertEquals(Integer.toString(config.repeat), columns[CsvSchema.REPEAT_INDEX],
                     "repeat");

@@ -8,7 +8,7 @@ import java.util.SplittableRandom;
 
 /** Tạo dữ liệu và đo các pha build, present, absent trong tiến trình con. */
 public final class Measure {
-    public static final String GENERATOR_VERSION = "1.0";
+    public static final String GENERATOR_VERSION = "2.0";
 
     private Measure() {
     }
@@ -23,19 +23,17 @@ public final class Measure {
             throw new IllegalArgumentException("N không thể lưu trong mảng Java");
         }
         int n = (int) roundedN;
-        long[] present = Generator.generatePresentKeys(seed, n);
-        LongSet presentSet = new LongSet(n);
-        for (int i = 0; i < present.length; i++) {
-            presentSet.add(present[i]);
-        }
-        long[] absentPool = Generator.generateAbsentKeys(seed, queries, presentSet);
-        long[] presentQueries = new long[queries];
+        long[] presentIds = Generator.generatePresentIds(seed, n);
+        String[] present = Generator.idsToKeys(presentIds);
+        String[] absentQueries = Generator.generateAbsentKeys(seed, queries, presentIds);
+        String[] presentQueries = new String[queries];
         SplittableRandom queryRandom = new SplittableRandom(seed ^ 0x5DEECE66DL);
         for (int i = 0; i < presentQueries.length; i++) {
-            presentQueries[i] = present[queryRandom.nextInt(present.length)];
+            long queryId = presentIds[queryRandom.nextInt(presentIds.length)];
+            presentQueries[i] = KeyCodec.encode(queryId);
         }
-        String inputSha256 = Generator.computeSHA256(present, absentPool);
-        return new Data(present, presentQueries, absentPool, inputSha256);
+        String inputSha256 = Generator.computeSHA256(present, absentQueries);
+        return new Data(present, presentQueries, absentQueries, inputSha256);
     }
 
     /** Làm nóng ba lần trên dữ liệu nhỏ, không tạo phase log. */
@@ -110,7 +108,7 @@ public final class Measure {
     }
 
     /** Tính tổng theo đề: giá trị tìm thấy cộng một cho mỗi khóa không tìm thấy. */
-    private static long runQueries(HashIndex index, long[] queries) {
+    private static long runQueries(HashIndex index, String[] queries) {
         long check = 0L;
         for (int i = 0; i < queries.length; i++) {
             int value = index.get(queries[i]);
@@ -125,12 +123,12 @@ public final class Measure {
 
     /** Lưu các mảng đầu vào dùng chung cho những pha của một tiến trình. */
     public static final class Data {
-        public final long[] present;
-        public final long[] presentQueries;
-        public final long[] absentQueries;
+        public final String[] present;
+        public final String[] presentQueries;
+        public final String[] absentQueries;
         public final String inputSha256;
 
-        private Data(long[] present, long[] presentQueries, long[] absentQueries,
+        private Data(String[] present, String[] presentQueries, String[] absentQueries,
                 String inputSha256) {
             this.present = present;
             this.presentQueries = presentQueries;

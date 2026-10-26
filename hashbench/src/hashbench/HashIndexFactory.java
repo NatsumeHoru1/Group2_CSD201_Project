@@ -12,6 +12,7 @@ package hashbench;
  *                                         lp-tomb: rebuild khi tỉ lệ TOMB > tau.
  *   algo = "lp-backshift", variant = "base" -> Dò mở tuyến tính, xóa dịch lùi
  *     theo Algorithm R của Knuth (TV6)
+ *   algo = "sc", variant = "base" -> Separate chaining
  *
  * Ghi vào CSV: rh-noearly là algorithm=rh, variant=noearly (không dùng algorithm="rh-noearly").
  * Thuật toán chưa hỗ trợ thì ném IllegalArgumentException; mỗi cặp tự thêm nhánh `if` cho
@@ -43,6 +44,9 @@ public final class HashIndexFactory {
         }
         if ("lp-backshift".equals(algo)) {
             return new LinearProbingBackshiftTable(p);
+        }
+        if ("sc".equals(algo)) {
+            return new SeparateChainingTable(p);
         }
         throw new IllegalArgumentException("Chua ho tro algorithm: " + algo);
     }

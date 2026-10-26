@@ -394,10 +394,11 @@ public final class Main {
     /** Kiểm tra thêm, tìm, xóa và kiểm tra lại khóa trong bảng stub. */
     private static void runStubCheck() {
         HashIndex index = new StubHashIndex(2);
-        if (index.put(10L, 25) != HashIndex.INSERTED
-                || index.get(10L) != 25
-                || !index.remove(10L)
-                || index.get(10L) != HashIndex.NOT_FOUND) {
+        String key = "00000000000A";
+        if (index.put(key, 25) != HashIndex.INSERTED
+                || index.get(key) != 25
+                || !index.remove(key)
+                || index.get(key) != HashIndex.NOT_FOUND) {
             throw new IllegalStateException("StubHashIndex self-check thất bại");
         }
         System.out.println("StubHashIndex put/get/remove: PASS");

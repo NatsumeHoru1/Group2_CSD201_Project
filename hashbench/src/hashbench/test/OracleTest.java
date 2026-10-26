@@ -34,12 +34,12 @@ public final class OracleTest {
         final int domain = (int) (factor * M);
         final long mul = offset ? 1_000_003L : 1L, off = offset ? 12_345_678_901L : 0L;
         HashIndex t = impl.f.create(P);
-        HashMap<Long, Integer> ref = new HashMap<Long, Integer>();
+        HashMap<String, Integer> ref = new HashMap<String, Integer>();
         SplittableRandom rng = new SplittableRandom(SEED + (long) (factor * 100));
         long fulls = 0, inserts = 0, updates = 0, removes = 0;
 
         for (long op = 1; op <= ops; op++) {
-            long key = rng.nextInt(domain) * mul + off;
+            String key = hashbench.KeyCodec.encode(rng.nextInt(domain) * mul + off);
             int r = rng.nextInt(100);
             if (r < 40) {
                 int v = rng.nextInt(); if (v == NOT_FOUND) v = 0;
@@ -70,9 +70,9 @@ public final class OracleTest {
         System.out.println("      (insert=" + inserts + " update=" + updates + " remove=" + removes + " FULL=" + fulls + " size cuối=" + t.size() + ")");
     }
 
-    static void sweep(HashIndex t, HashMap<Long, Integer> ref, int domain, long mul, long off, long op) {
+    static void sweep(HashIndex t, HashMap<String, Integer> ref, int domain, long mul, long off, long op) {
         for (int k = 0; k < domain; k++) {
-            long key = k * mul + off;
+            String key = hashbench.KeyCodec.encode(k * mul + off);
             Integer e = ref.get(key);
             int exp = e == null ? NOT_FOUND : e;
             if (t.get(key) != exp) throw new AssertionError("quét toàn miền tại op " + op + ": get(" + key + ") sai");

@@ -16,12 +16,10 @@ public class LinearProbingBackshiftTable implements HashIndex, HashStats {
     /** Tên cơ chế xóa dịch lùi, ghi vào cột params của CSV. */
     public static final String BACKSHIFT_METHOD = "knuth-r";
 
-    private static final long EMPTY = -1L; // an toàn vì khóa luôn >= 0
-
     private final int p;
     private final int capacity;
     private final int mask;
-    private final long[] keys;
+    private final String[] keys;
     private final int[] vals;
     private int size;
 
@@ -33,14 +31,19 @@ public class LinearProbingBackshiftTable implements HashIndex, HashStats {
         this.p = p;
         this.capacity = 1 << p;
         this.mask = capacity - 1;
-        this.keys = new long[capacity];
+        this.keys = new String[capacity];
         this.vals = new int[capacity];
-        java.util.Arrays.fill(keys, EMPTY);
     }
 
     /** Ô nhà của khóa, dùng thư viện Hashing do TV2 cung cấp. */
-    private int home(long key) {
+    private int home(String key) {
         return Hashing.hash(key, p);
+    }
+
+    private static void requireKey(String key) {
+        if (key == null) {
+            throw new IllegalArgumentException("key không được null");
+        }
     }
 
     /**
@@ -49,19 +52,20 @@ public class LinearProbingBackshiftTable implements HashIndex, HashStats {
      * thì trả FULL và dữ liệu không đổi.
      */
     @Override
-    public int put(long key, int value) {
+    public int put(String key, int value) {
+        requireKey(key);
         if (value == NOT_FOUND) {
             throw new IllegalArgumentException("value không được bằng NOT_FOUND");
         }
         int idx = home(key);
         for (int step = 0; step < capacity; step++) {
-            if (keys[idx] == EMPTY) { // ô trống: khóa chắc chắn chưa có trong bảng
+            if (keys[idx] == null) { // ô trống: khóa chắc chắn chưa có trong bảng
                 keys[idx] = key;
                 vals[idx] = value;
                 size++;
                 return INSERTED;
             }
-            if (keys[idx] == key) { // khóa đã có: cập nhật giá trị
+            if (key.equals(keys[idx])) { // khóa đã có: cập nhật giá trị
                 vals[idx] = value;
                 return UPDATED;
             }
@@ -75,16 +79,17 @@ public class LinearProbingBackshiftTable implements HashIndex, HashStats {
      * (kể cả ô EMPTY cuối cùng) được đếm vào bộ đếm ở lượt --count.
      */
     @Override
-    public int get(long key) {
+    public int get(String key) {
+        requireKey(key);
         int idx = home(key);
         int viewed = 0;
         int result = NOT_FOUND;
         for (int step = 0; step < capacity; step++) {
             viewed++;
-            if (keys[idx] == EMPTY) {
+            if (keys[idx] == null) {
                 break;
             }
-            if (keys[idx] == key) {
+            if (key.equals(keys[idx])) {
                 result = vals[idx];
                 break;
             }
@@ -101,19 +106,21 @@ public class LinearProbingBackshiftTable implements HashIndex, HashStats {
      * không còn ô trống nằm giữa cụm; nhờ vậy bảng không bao giờ sinh tombstone.
      */
     @Override
-    public boolean remove(long key) {
-        int target = find(key);
+    public boolean remove(String key) {
+        requireKey(key);
+        int home = home(key);
+        int target = find(key, home);
         if (target < 0) {
             return false; // khóa không có: dữ liệu không đổi
         }
         int hole = target;
-        keys[hole] = EMPTY;
+        keys[hole] = null;
         vals[hole] = 0;
         size--;
         int idx = hole;
         while (true) {
             idx = (idx + 1) & mask;
-            if (keys[idx] == EMPTY) {
+            if (keys[idx] == null) {
                 return true; // đã quét hết cụm: không còn khóa nào cần dịch
             }
             int h = home(keys[idx]);
@@ -122,7 +129,7 @@ public class LinearProbingBackshiftTable implements HashIndex, HashStats {
             if (((hole - h) & mask) < ((idx - h) & mask)) {
                 keys[hole] = keys[idx];
                 vals[hole] = vals[idx];
-                keys[idx] = EMPTY;
+                keys[idx] = null;
                 vals[idx] = 0;
                 hole = idx; // lỗ hổng chuyển sang ô vừa dọn, tiếp tục dò
             }
@@ -130,13 +137,13 @@ public class LinearProbingBackshiftTable implements HashIndex, HashStats {
     }
 
     /** Trả về chỉ số ô chứa khóa, hoặc -1 nếu không có. */
-    private int find(long key) {
-        int idx = home(key);
+    private int find(String key, int home) {
+        int idx = home;
         for (int step = 0; step < capacity; step++) {
-            if (keys[idx] == EMPTY) {
+            if (keys[idx] == null) {
                 return -1;
             }
-            if (keys[idx] == key) {
+            if (key.equals(keys[idx])) {
                 return idx;
             }
             idx = (idx + 1) & mask;
@@ -175,7 +182,7 @@ public class LinearProbingBackshiftTable implements HashIndex, HashStats {
         }
         long sum = 0L;
         for (int i = 0; i < capacity; i++) {
-            if (keys[i] != EMPTY) {
+            if (keys[i] != null) {
                 sum += (i - home(keys[i])) & mask;
             }
         }
@@ -187,7 +194,7 @@ public class LinearProbingBackshiftTable implements HashIndex, HashStats {
     public int dibMax() {
         int max = 0;
         for (int i = 0; i < capacity; i++) {
-            if (keys[i] != EMPTY) {
+            if (keys[i] != null) {
                 int dib = (i - home(keys[i])) & mask;
                 if (dib > max) {
                     max = dib;
@@ -217,23 +224,20 @@ public class LinearProbingBackshiftTable implements HashIndex, HashStats {
     public void validate() {
         int count = 0;
         for (int i = 0; i < capacity; i++) {
-            if (keys[i] == EMPTY) {
+            if (keys[i] == null) {
                 continue;
             }
             count++;
-            if (keys[i] < 0L) {
-                throw new IllegalStateException("khóa âm tại ô " + i);
-            }
             // 1: mọi ô nằm giữa ô nhà và ô i phải còn khóa (cụm phải liên tục)
             int idx = home(keys[i]);
             while (idx != i) {
-                if (keys[idx] == EMPTY) {
+                if (keys[idx] == null) {
                     throw new IllegalStateException("cụm không liên tục tại ô " + i);
                 }
                 idx = (idx + 1) & mask;
             }
             // 2: khóa phải tìm lại được đúng ô đang chứa nó
-            if (find(keys[i]) != i) {
+            if (find(keys[i], home(keys[i])) != i) {
                 throw new IllegalStateException("không tìm lại được khóa ở ô " + i);
             }
         }
@@ -247,7 +251,7 @@ public class LinearProbingBackshiftTable implements HashIndex, HashStats {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < capacity; i++) {
             sb.append(i).append(": ");
-            if (keys[i] == EMPTY) {
+            if (keys[i] == null) {
                 sb.append("-");
             } else {
                 sb.append("key=").append(keys[i])
