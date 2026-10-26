@@ -27,6 +27,7 @@ public final class MeasureChildTest {
             testIndependentOracle(root.resolve("oracle"));
             testVariantsAgree(root.resolve("variants"));
             testCounters(root.resolve("count"));
+            testTauForwarding(root.resolve("tau"));
             testTimeoutHarvesting(root.resolve("timeout"));
             System.out.println("MeasureChildTest: ALL PASS");
         } finally {
@@ -119,6 +120,42 @@ public final class MeasureChildTest {
                 "present probes trung bình ngoài khoảng 1..10: " + averagePresent);
     }
 
+    /** Xác nhận lp-tomb nhận tau qua tiến trình con mà không đổi kết quả truy vấn. */
+    private static void testTauForwarding(Path root) throws Exception {
+        Files.createDirectories(root);
+        RunConfig infinite = config("lp-tomb", "base", 10, 0.75, 20000, 1L,
+                false, 30, Double.POSITIVE_INFINITY);
+        RunConfig finite = config("lp-tomb", "base", 10, 0.75, 20000, 1L,
+                false, 30, 0.2);
+        RunConfig rh = config("rh", "base", 10, 0.75, 20000, 1L,
+                false, 30, Double.POSITIVE_INFINITY);
+        run(infinite, root.resolve("infinite.csv"), root);
+        run(finite, root.resolve("finite.csv"), root);
+        run(rh, root.resolve("rh.csv"), root);
+        List<String[]> infiniteRows = readCsv(root.resolve("infinite.csv"));
+        List<String[]> finiteRows = readCsv(root.resolve("finite.csv"));
+        List<String[]> rhRows = readCsv(root.resolve("rh.csv"));
+        for (int i = 1; i <= PHASES.length; i++) {
+            assertEquals("ok", infiniteRows.get(i)[CsvSchema.STATUS_INDEX],
+                    "tau=inf status " + PHASES[i - 1]);
+            assertEquals("ok", finiteRows.get(i)[CsvSchema.STATUS_INDEX],
+                    "tau=0.2 status " + PHASES[i - 1]);
+            assertEquals("inf", CsvParams.value(
+                    infiniteRows.get(i)[CsvSchema.PARAMS_INDEX], "tau"), "params tau=inf");
+            assertEquals("0.2", CsvParams.value(
+                    finiteRows.get(i)[CsvSchema.PARAMS_INDEX], "tau"), "params tau=0.2");
+            assertEquals(rhRows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX],
+                    infiniteRows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX],
+                    "output_check tau=inf vs rh " + PHASES[i - 1]);
+            assertEquals(rhRows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX],
+                    finiteRows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX],
+                    "output_check tau=0.2 vs rh " + PHASES[i - 1]);
+            assertEquals(infiniteRows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX],
+                    finiteRows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX],
+                    "output_check tau variants " + PHASES[i - 1]);
+        }
+    }
+
     /** Dùng hook sleep để timeout luôn xảy ra trong pha chỉ định, không phụ thuộc tốc độ máy. */
     private static void testTimeoutHarvesting(Path root) throws Exception {
         Files.createDirectories(root);
@@ -149,8 +186,14 @@ public final class MeasureChildTest {
     /** Tạo cấu hình RQ1 riêng cho từng lượt test. */
     private static RunConfig config(String algo, String variant, int p, double alpha,
             long queries, long seed, boolean count, int timeoutSec) {
+        return config(algo, variant, p, alpha, queries, seed, count, timeoutSec, 0.0);
+    }
+
+    /** Tạo cấu hình RQ1 với tau cụ thể. */
+    private static RunConfig config(String algo, String variant, int p, double alpha,
+            long queries, long seed, boolean count, int timeoutSec, double tau) {
         return new RunConfig("RQ1", algo, variant, "rq1a", 0L, p, alpha,
-                0, 0.0, 0.0, queries, seed, 1, "2g", "", timeoutSec, count);
+                0, tau, 0.0, queries, seed, 1, "2g", "", timeoutSec, count);
     }
 
     /** Chạy runner và ghi vào đúng file CSV riêng của ca test. */

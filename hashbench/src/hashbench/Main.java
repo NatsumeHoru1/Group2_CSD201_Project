@@ -109,6 +109,8 @@ public final class Main {
         String dataset = required(options, "--dataset");
         int p = Integer.parseInt(required(options, "--p"));
         double alpha = Double.parseDouble(required(options, "--alpha"));
+        double tau = options.containsKey("--tau")
+                ? parseTau(options.get("--tau")) : Double.POSITIVE_INFINITY;
         long seed = Long.parseLong(required(options, "--seed"));
         long queries = Long.parseLong(required(options, "--queries"));
         int repeat = options.containsKey("--repeat")
@@ -122,7 +124,7 @@ public final class Main {
                 ? options.get("--out") : "results/raw/dev/bench.csv";
         String phases = options.get("--phases");
         RunConfig config = new RunConfig(rq, algo, variant, dataset, 0L, p, alpha,
-                0, 0.0, 0.0, queries, seed, repeat, xmx, machineId, timeoutSec,
+                0, tau, 0.0, queries, seed, repeat, xmx, machineId, timeoutSec,
                 count, phases);
         Runner.RunResult result = Runner.runWithCsv(
                 config, Paths.get(out), Paths.get("."));
@@ -160,6 +162,18 @@ public final class Main {
             throw new IllegalArgumentException("Thiếu tham số " + name);
         }
         return value;
+    }
+
+    /** Đọc tau từ CLI; "inf" là ký hiệu duy nhất cho vô hạn dương. */
+    private static double parseTau(String value) {
+        if ("inf".equals(value)) {
+            return Double.POSITIVE_INFINITY;
+        }
+        double tau = Double.parseDouble(value);
+        if (Double.isNaN(tau) || Double.isInfinite(tau) || tau < 0.0) {
+            throw new IllegalArgumentException("--tau phải là inf hoặc số hữu hạn >= 0");
+        }
+        return tau;
     }
 
     /** Kiểm tra một cờ boolean có xuất hiện trong dòng lệnh hay không. */
@@ -271,6 +285,8 @@ public final class Main {
         String dataset = required(options, "--dataset");
         int p = Integer.parseInt(required(options, "--p"));
         double alpha = Double.parseDouble(required(options, "--alpha"));
+        double tau = options.containsKey("--tau")
+                ? parseTau(options.get("--tau")) : Double.POSITIVE_INFINITY;
         long seed = Long.parseLong(required(options, "--seed"));
         long queriesValue = Long.parseLong(required(options, "--queries"));
         String sleepPhase = null;
@@ -299,8 +315,8 @@ public final class Main {
         Measure.Data data;
         try {
             data = Measure.buildData(seed, p, alpha, queries);
-            Measure.warmUp(algo, variant, p, alpha, seed ^ 0x6A09E667F3BCC909L,
-                    queries);
+            Measure.warmUp(algo, variant, p, alpha, tau,
+                    seed ^ 0x6A09E667F3BCC909L, queries);
             Counters.reset();
         } catch (OutOfMemoryError error) {
             appendFailure(log, phases.get(0), "oom", "", "");
@@ -321,7 +337,7 @@ public final class Main {
                     Thread.sleep(sleepSeconds * 1000L);
                 }
                 if ("build".equals(phase)) {
-                    index = HashIndexFactory.create(algo, variant, p);
+                    index = HashIndexFactory.create(algo, variant, p, tau);
                 }
                 if (index == null) {
                     throw new IllegalStateException("Pha build phải chạy trước query phase");

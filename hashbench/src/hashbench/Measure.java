@@ -40,13 +40,13 @@ public final class Measure {
 
     /** Làm nóng ba lần trên dữ liệu nhỏ, không tạo phase log. */
     public static void warmUp(String algo, String variant, int p, double alpha,
-            long seed, int queries) {
+            double tau, long seed, int queries) {
         int warmP = Math.min(p, 12);
         int warmQueries = Math.min(queries, 10000);
         for (int repeat = 0; repeat < 3; repeat++) {
             long warmSeed = seed ^ (0x9E3779B97F4A7C15L + repeat);
             Data data = buildData(warmSeed, warmP, alpha, warmQueries);
-            HashIndex index = HashIndexFactory.create(algo, variant, warmP);
+            HashIndex index = HashIndexFactory.create(algo, variant, warmP, tau);
             runPhase("build", index, data, false);
             runPhase("present", index, data, false);
             runPhase("absent", index, data, false);
