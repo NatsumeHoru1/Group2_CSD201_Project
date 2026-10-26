@@ -1,7 +1,0 @@
-* text=auto
-*.java text eol=lf
-*.md text eol=lf
-*.bat text eol=crlf
-*.csv text eol=lf
-*.pdf binary
-*.jar binary
