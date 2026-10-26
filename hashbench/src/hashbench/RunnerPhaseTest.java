@@ -30,6 +30,12 @@ public final class RunnerPhaseTest {
                 testNormalPhases(root);
             }
         });
+        failures += runCase("git-commit-metadata", new TestCase() {
+            @Override
+            public void run(Path root) throws Exception {
+                testGitCommitMetadata(root);
+            }
+        });
         failures += runCase("timeout-absent", new TestCase() {
             @Override
             public void run(Path root) throws Exception {
@@ -99,6 +105,54 @@ public final class RunnerPhaseTest {
         assertCsv(root.resolve("results.csv"), result, config,
                 new String[] {"ok", "ok", "ok", "ok"},
                 new String[] {"", "", "", ""});
+    }
+
+    /** Ghi hash sạch, hậu tố dirty và chặn official khi source scope thay đổi. */
+    private static void testGitCommitMetadata(Path root) throws Exception {
+        try {
+            runGit(root, "--version");
+        } catch (IOException exception) {
+            System.out.println("SKIP git-commit-metadata: git không có trên PATH");
+            return;
+        }
+        Path source = root.resolve("hashbench").resolve("x.txt");
+        Files.createDirectories(source.getParent());
+        Files.write(source, "baseline".getBytes(StandardCharsets.UTF_8));
+        runGit(root, "init");
+        runGit(root, "add", "--", "hashbench/x.txt");
+        runGit(root, "-c", "user.name=Runner Test", "-c",
+                "user.email=runner-test@example.invalid", "commit", "-m", "baseline");
+        String expectedHash = runGit(root, "rev-parse", "--short", "HEAD").trim();
+
+        RunConfig config = config(10, false);
+        Runner.runWithCsv(config, root.resolve("clean.csv"), root);
+        List<String[]> cleanRows = readCsv(root.resolve("clean.csv"));
+        for (int i = 1; i < cleanRows.size(); i++) {
+            assertMatches("[0-9a-f]{7}", cleanRows.get(i)[CsvSchema.GIT_COMMIT_INDEX],
+                    "git_commit clean");
+            assertEquals(expectedHash, cleanRows.get(i)[CsvSchema.GIT_COMMIT_INDEX],
+                    "hash clean");
+        }
+
+        Files.write(source, "modified".getBytes(StandardCharsets.UTF_8));
+        Runner.runWithCsv(config, root.resolve("dirty.csv"), root);
+        List<String[]> dirtyRows = readCsv(root.resolve("dirty.csv"));
+        for (int i = 1; i < dirtyRows.size(); i++) {
+            assertMatches("[0-9a-f]{7}-dirty",
+                    dirtyRows.get(i)[CsvSchema.GIT_COMMIT_INDEX], "git_commit dirty");
+        }
+
+        Path officialCsv = root.resolve("official.csv");
+        boolean refused = false;
+        try {
+            Runner.runWithCsv(config, officialCsv, root, true);
+        } catch (Runner.OfficialRunException exception) {
+            refused = true;
+            assertTrue(exception.getMessage().contains("Official benchmark bị từ chối"),
+                    "official phải báo rõ lý do");
+        }
+        assertTrue(refused, "official phải từ chối cây bẩn");
+        assertTrue(!Files.exists(officialCsv), "official bị từ chối không được ghi CSV");
     }
 
     /** Kiểm tra timeout khi absent đang chạy và control chưa bắt đầu. */
@@ -183,6 +237,39 @@ public final class RunnerPhaseTest {
     /** Chạy runner vào CSV riêng của test và xác nhận kết quả tiến trình. */
     private static Runner.RunResult run(RunConfig config, Path root) throws Exception {
         return Runner.runWithCsv(config, root.resolve("results.csv"), root);
+    }
+
+    /** Chạy git không qua pager và trả stdout; mọi command test có timeout hữu hạn. */
+    private static String runGit(Path directory, String... arguments) throws Exception {
+        List<String> command = new ArrayList<String>();
+        command.add("git");
+        command.add("--no-pager");
+        command.addAll(Arrays.asList(arguments));
+        Path output = Files.createTempFile("runner-phase-git-", ".out");
+        try {
+            ProcessBuilder builder = new ProcessBuilder(command);
+            builder.directory(directory.toFile());
+            builder.redirectErrorStream(true);
+            builder.redirectOutput(output.toFile());
+            Process process;
+            try {
+                process = builder.start();
+            } catch (IOException exception) {
+                throw new IOException("git executable unavailable", exception);
+            }
+            if (!process.waitFor(10L, java.util.concurrent.TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                process.waitFor();
+                throw new IOException("git command timed out: " + command);
+            }
+            String result = new String(Files.readAllBytes(output), StandardCharsets.UTF_8);
+            if (process.exitValue() != 0) {
+                throw new IOException("git command failed: " + command + "\n" + result);
+            }
+            return result;
+        } finally {
+            Files.deleteIfExists(output);
+        }
     }
 
     /** Tạo cấu hình test với metadata hợp lệ, không chạy workload benchmark. */
@@ -317,6 +404,7 @@ public final class RunnerPhaseTest {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attributes)
                     throws IOException {
+                file.toFile().setWritable(true);
                 Files.delete(file);
                 return FileVisitResult.CONTINUE;
             }

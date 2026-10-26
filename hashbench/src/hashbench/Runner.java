@@ -38,6 +38,12 @@ public final class Runner {
     /** Chạy con, đọc phase log sau khi kết thúc và ghi một hàng CSV cho mỗi pha. */
     public static RunResult runWithCsv(RunConfig config, Path csvPath, Path workingDirectory)
             throws IOException, InterruptedException {
+        return runWithCsv(config, csvPath, workingDirectory, false);
+    }
+
+    /** Chạy benchmark; official=true yêu cầu hash git khả dụng và cây benchmark sạch. */
+    public static RunResult runWithCsv(RunConfig config, Path csvPath, Path workingDirectory,
+            boolean official) throws IOException, InterruptedException {
         if (config == null) {
             throw new IllegalArgumentException("config không được null");
         }
@@ -46,6 +52,16 @@ public final class Runner {
         }
         if (config.capacity() <= 0) {
             throw new IllegalArgumentException("Dung lượng bảng không hợp lệ");
+        }
+        GitState gitState = readGitState(workingDirectory.toAbsolutePath().normalize());
+        if (official && !gitState.available) {
+            throw new OfficialRunException(
+                    "Official benchmark bị từ chối: không lấy được git hash/trạng thái "
+                    + "trong " + workingDirectory);
+        }
+        if (official && !gitState.clean) {
+            throw new OfficialRunException(
+                    "Official benchmark bị từ chối: hashbench/ hoặc bench/ chưa sạch.");
         }
 
         String javaName = "java";
@@ -149,11 +165,102 @@ public final class Runner {
         try (CsvWriter writer = new CsvWriter(csvPath, true)) {
             writer.writeHeader();
             for (PhaseResult result : results) {
-                writer.writePhaseRow(result, wallMs, config);
+                writer.writePhaseRow(result, wallMs, config, gitState.gitCommit);
             }
         }
         return new RunResult(procId, wallMs, timedOut, exitCode,
-                output.contains("Counters.ON=true"), results);
+                output.contains("Counters.ON=true"), gitState.gitCommit, results);
+    }
+
+    /** Thu thập hash và trạng thái thay đổi trong scope benchmark, giới hạn mỗi lệnh 10s. */
+    private static GitState readGitState(Path workingDirectory) throws InterruptedException {
+        GitCommand hash = runGit(workingDirectory, "rev-parse", "--short", "HEAD");
+        GitCommand status = runGit(workingDirectory, "status", "--porcelain",
+                "--", "hashbench", "bench");
+        if (!hash.succeeded || !status.succeeded || hash.output.trim().length() == 0) {
+            return new GitState("", false, false);
+        }
+        boolean clean = status.output.trim().length() == 0;
+        String commit = hash.output.trim();
+        return new GitState(clean ? commit : commit + "-dirty", clean, true);
+    }
+
+    /** Chạy một lệnh git, giới hạn thời gian tối đa mười giây. */
+    private static GitCommand runGit(Path workingDirectory, String... arguments)
+            throws InterruptedException {
+        Path outputFile = null;
+        try {
+            outputFile = Files.createTempFile("hashbench-git-", ".out");
+            List<String> command = new ArrayList<String>();
+            command.add("git");
+            command.add("--no-pager");
+            for (String argument : arguments) {
+                command.add(argument);
+            }
+            ProcessBuilder builder = new ProcessBuilder(command);
+            builder.directory(workingDirectory.toFile());
+            builder.redirectErrorStream(true);
+            builder.redirectOutput(outputFile.toFile());
+            Process process;
+            try {
+                process = builder.start();
+            } catch (IOException exception) {
+                return GitCommand.failed();
+            }
+            if (!process.waitFor(10L, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                process.waitFor();
+                return GitCommand.failed();
+            }
+            String output = new String(Files.readAllBytes(outputFile),
+                    StandardCharsets.UTF_8);
+            return new GitCommand(process.exitValue() == 0, output);
+        } catch (IOException exception) {
+            return GitCommand.failed();
+        } finally {
+            if (outputFile != null) {
+                try {
+                    Files.deleteIfExists(outputFile);
+                } catch (IOException exception) {
+                    outputFile.toFile().deleteOnExit();
+                }
+            }
+        }
+    }
+
+    /** Lỗi rõ ràng khi --official không đáp ứng điều kiện repo. */
+    public static final class OfficialRunException extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        private OfficialRunException(String message) {
+            super(message);
+        }
+    }
+
+    private static final class GitState {
+        private final String gitCommit;
+        private final boolean clean;
+        private final boolean available;
+
+        private GitState(String gitCommit, boolean clean, boolean available) {
+            this.gitCommit = gitCommit;
+            this.clean = clean;
+            this.available = available;
+        }
+    }
+
+    private static final class GitCommand {
+        private final boolean succeeded;
+        private final String output;
+
+        private GitCommand(boolean succeeded, String output) {
+            this.succeeded = succeeded;
+            this.output = output;
+        }
+
+        private static GitCommand failed() {
+            return new GitCommand(false, "");
+        }
     }
 
     /** Thêm cặp tham số CLI vào lệnh tiến trình con. */
@@ -270,15 +377,17 @@ public final class Runner {
         public final boolean timedOut;
         public final int exitCode;
         public final boolean childCountEnabled;
+        public final String gitCommit;
         public final List<PhaseResult> phases;
 
         private RunResult(String procId, String wallMs, boolean timedOut, int exitCode,
-                boolean childCountEnabled, List<PhaseResult> phases) {
+                boolean childCountEnabled, String gitCommit, List<PhaseResult> phases) {
             this.procId = procId;
             this.wallMs = wallMs;
             this.timedOut = timedOut;
             this.exitCode = exitCode;
             this.childCountEnabled = childCountEnabled;
+            this.gitCommit = gitCommit;
             this.phases = phases;
         }
     }
