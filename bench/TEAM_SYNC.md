@@ -1,15 +1,15 @@
 # TEAM\_SYNC - cập nhật 25/10 (TV1)
 
-Commit: <điền hash sau khi push> f901972. Mọi người `git pull --rebase` trước khi làm tiếp.
+Commit: 76a92e7 (mốc trước: f901972). Mọi người `git pull --rebase` trước khi làm tiếp.
 
 ## Đã có trên main
 
 * Runner đo thật cho RQ1 (thuật toán rh). Lệnh mẫu (PowerShell, chạy ở thư mục gốc dự án):
-`.\\build.bat`
-`java -Xmx2g -jar hashbench\\out\\hashbench.jar --bench --rq RQ1 --algo rh --variant base --dataset rq1a --p 18 --alpha 0.75 --seed 1 --queries 1000000`
+`.\\\\build.bat`
+`java -Xmx2g -jar hashbench\\\\out\\\\hashbench.jar --bench --rq RQ1 --algo rh --variant base --dataset rq1a --p 18 --alpha 0.75 --seed 1 --queries 1000000`
 * CSV 32 cột (20 cột bắt buộc + 12 cột riêng), xem `CsvSchema.java`. Tiến trình con ghi log từng pha nên khi timeout vẫn giữ được các pha đã xong.
 * Test: RunnerPhaseTest, MeasureChildTest, TV2SelfTest. Cả ba phải xanh trước khi push.
-`java -cp hashbench\\out hashbench.RunnerPhaseTest` (tương tự cho hai test còn lại)
+`java -cp hashbench\\\\out hashbench.RunnerPhaseTest` (tương tự cho hai test còn lại)
 
 ## Cách cắm thuật toán vào runner (TV3, TV4, TV6)
 
@@ -19,7 +19,7 @@ Chữ ký factory hiện chưa có `tau`. TV3 đề xuất đổi thành `create
 
 ## Việc từng người
 
-* TV2: [HOÀN THÀNH] (1) Đã sửa generateClusteredKeys đúng đặc tả: 10% khóa có h(k) < M/64, 90% phân bố đều. (2) computeSHA256 đã chuyển sang bảng tra cứu hex tĩnh bytesToHex() O(1). (3) Đã thêm verify_env.bat kiểm tra môi trường Java 8 / bytecode 52 / GC / selftest. (4) Đã chốt 3 seed: 1, 2, 3 (khai báo tại Generator.FIXED_SEEDS và bench/seeds.txt).
+* TV2: [HOÀN THÀNH] (1) Đã sửa generateClusteredKeys đúng đặc tả: 10% khóa có h(k) < M/64, 90% phân bố đều. (2) computeSHA256 đã chuyển sang bảng tra cứu hex tĩnh bytesToHex() O(1). (3) Đã thêm verify_env.bat kiểm tra môi trường Java 8 / bytecode 52 / GC / selftest. (4) Đã chốt 3 seed: 1, 2, 3 (khai báo tại Generator.FIXED_SEEDS và bench/seeds.txt). Các mục này cũng có trong ghi chú stash với trạng thái pending cũ.
 * TV3: `lp-tomb` (EMPTY/TOMB, put nhớ TOMB đầu tiên, dò tối đa M ô), rebuild theo tau. Đẩy lên main sớm nhất có thể và báo ngày giao.
 * TV4: test harness + oracle 10^6 thao tác + 6 ca bắt buộc, báo trạng thái. Workload RQ2/RQ3 phụ thuộc lp-tomb.
 * TV5: rh đã dùng được. Chạy `validate()` sau oracle 10^6 thao tác và báo kết quả. Hỗ trợ lp-backshift nếu TV6 chậm.
@@ -47,4 +47,3 @@ Chữ ký factory hiện chưa có `tau`. TV3 đề xuất đổi thành `create
 * Hôm nay/ngày mai: mỗi thuật toán lên main kèm test của mình xanh. Ai chưa kịp thì báo TV1 ngay để rút gọn đo.
 * TV1: resume, git\_commit, --rerun, rồi pilot toàn ma trận ngay khi đủ thuật toán.
 * Nếu thiếu thuật toán thì đo RQ1 với những cái đã có trước; không cắt seed hay lượt lặp.
-
