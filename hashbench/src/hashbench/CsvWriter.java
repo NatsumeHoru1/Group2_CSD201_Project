@@ -65,10 +65,11 @@ public final class CsvWriter implements Closeable {
 
     /**
      * Điền metadata đã biết. TODO: input_sha256, generator_version,
-     * heap_before_bytes, heap_peak_bytes, ops_count, output_check, git_commit
-     * và các chỉ số riêng chưa có nguồn dữ liệu nên để trống.
+     * heap_before_bytes, heap_peak_bytes, ops_count, output_check và các chỉ số riêng
+     * chưa có nguồn dữ liệu nên để trống.
      */
-    public void writePhaseRow(Runner.PhaseResult result, String wallMs, RunConfig config)
+    public void writePhaseRow(Runner.PhaseResult result, String wallMs, RunConfig config,
+            String gitCommit)
             throws IOException {
         if (result == null || config == null) {
             throw new IllegalArgumentException("result và config không được null");
@@ -95,6 +96,7 @@ public final class CsvWriter implements Closeable {
         values[CsvSchema.STATUS_INDEX] = result.status;
         values[CsvSchema.XMX_INDEX] = config.xmx;
         values[CsvSchema.MACHINE_ID_INDEX] = config.machineId;
+        values[CsvSchema.GIT_COMMIT_INDEX] = gitCommit;
         values[CsvSchema.PROC_ID_INDEX] = result.procId;
         values[CsvSchema.PHASE_INDEX] = result.phase;
         values[CsvSchema.WALL_MS_INDEX] = wallMs;

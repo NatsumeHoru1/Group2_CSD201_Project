@@ -126,8 +126,15 @@ public final class Main {
         RunConfig config = new RunConfig(rq, algo, variant, dataset, 0L, p, alpha,
                 0, tau, 0.0, queries, seed, repeat, xmx, machineId, timeoutSec,
                 count, phases);
-        Runner.RunResult result = Runner.runWithCsv(
-                config, Paths.get(out), Paths.get("."));
+        Runner.RunResult result;
+        try {
+            result = Runner.runWithCsv(config, Paths.get(out), Paths.get("."),
+                    options.containsKey("--official"));
+        } catch (Runner.OfficialRunException exception) {
+            System.err.println(exception.getMessage());
+            System.exit(2);
+            return;
+        }
         for (Runner.PhaseResult phase : result.phases) {
             System.out.println("phase=" + phase.phase
                     + " status=" + phase.status
@@ -141,7 +148,7 @@ public final class Main {
         Map<String, String> options = new HashMap<String, String>();
         for (int i = start; i < args.length; i++) {
             String name = args[i];
-            if ("--count".equals(name)) {
+            if ("--count".equals(name) || "--official".equals(name)) {
                 options.put(name, "true");
             } else if (name.startsWith("--")) {
                 if (i + 1 >= args.length || args[i + 1].startsWith("--")) {
