@@ -10,4 +10,5 @@ results/raw/runner.csv
 r e p o m i x - o u t p u t . m d 
 repomix-output.md
 ds
- 
+hashbench/out/
+out/
