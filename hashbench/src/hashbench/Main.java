@@ -1,6 +1,7 @@
 package hashbench;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,6 +20,11 @@ public final class Main {
         if (args.length == 0) {
             printUsage();
             System.exit(2);
+            return;
+        }
+
+        if (hasFlag(args, "--rerun")) {
+            runRerun(args);
             return;
         }
 
@@ -480,10 +486,196 @@ public final class Main {
         System.out.println("StubHashIndex put/get/remove: PASS");
     }
 
+    /** Chạy lại cấu hình từ một dòng run_id trong CSV và so khớp kết quả theo tiêu chí mục 10.1. */
+    private static void runRerun(String[] args) throws Exception {
+        String targetRunId = null;
+        String csvPath = null;
+        for (int i = 0; i < args.length; i++) {
+            if ("--rerun".equals(args[i])) {
+                if (i + 1 < args.length && !args[i + 1].startsWith("--")) {
+                    targetRunId = args[++i];
+                }
+            } else if ("--csv".equals(args[i])) {
+                if (i + 1 < args.length && !args[i + 1].startsWith("--")) {
+                    csvPath = args[++i];
+                }
+            }
+        }
+        if (targetRunId == null || csvPath == null) {
+            System.err.println("Cú pháp: java -jar hashbench.jar --rerun <run_id> --csv <file>");
+            System.exit(2);
+            return;
+        }
+
+        java.nio.file.Path file = Paths.get(csvPath);
+        if (!java.nio.file.Files.exists(file)) {
+            System.err.println("Lỗi: Không tìm thấy file CSV " + csvPath);
+            System.exit(1);
+            return;
+        }
+
+        List<String[]> allRows = new ArrayList<String[]>();
+        try (java.io.BufferedReader reader = java.nio.file.Files.newBufferedReader(
+                file, java.nio.charset.StandardCharsets.UTF_8)) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.trim().length() == 0) continue;
+                allRows.add(CsvValidator.splitCsvLine(line));
+            }
+        }
+
+        String[] targetRow = null;
+        for (int i = 1; i < allRows.size(); i++) {
+            String[] row = allRows.get(i);
+            if (row.length > CsvSchema.RUN_ID_INDEX && targetRunId.equals(row[CsvSchema.RUN_ID_INDEX])) {
+                targetRow = row;
+                break;
+            }
+        }
+
+        if (targetRow == null) {
+            System.err.println("Lỗi: Không tìm thấy run_id '" + targetRunId + "' trong " + csvPath);
+            System.exit(1);
+            return;
+        }
+
+        // Lấy cấu hình từ các cột của dòng
+        String rq = targetRow[CsvSchema.RQ_INDEX];
+        String algo = targetRow[CsvSchema.ALGORITHM_INDEX];
+        String variant = targetRow[CsvSchema.VARIANT_INDEX];
+        String dataset = targetRow[CsvSchema.DATASET_INDEX];
+        String params = targetRow[CsvSchema.PARAMS_INDEX];
+        long seed = Long.parseLong(targetRow[CsvSchema.SEED_INDEX]);
+        int repeat = Integer.parseInt(targetRow[CsvSchema.REPEAT_INDEX]);
+        String xmx = targetRow[CsvSchema.XMX_INDEX];
+        String targetPhase = targetRow[CsvSchema.PHASE_INDEX];
+        String origStatus = targetRow[CsvSchema.STATUS_INDEX];
+        String origOutputCheck = targetRow[CsvSchema.OUTPUT_CHECK_INDEX];
+        String origElapsedMs = targetRow[CsvSchema.ELAPSED_MS_INDEX];
+        boolean countMode = targetRow[CsvSchema.OPS_COUNT_INDEX].trim().length() > 0;
+
+        int p = Integer.parseInt(CsvParams.value(params, "p"));
+        double alpha = Double.parseDouble(CsvParams.value(params, "alpha"));
+        String tauStr = CsvParams.value(params, "tau");
+        double tau = (tauStr == null || "inf".equals(tauStr))
+                ? Double.POSITIVE_INFINITY : Double.parseDouble(tauStr);
+        String queriesStr = CsvParams.value(params, "queries");
+        long queries = queriesStr != null ? Long.parseLong(queriesStr) : 0L;
+        String cStr = CsvParams.value(params, "c");
+        int c = cStr != null ? Integer.parseInt(cStr) : 0;
+        String loadStr = CsvParams.value(params, "load");
+        double load = loadStr != null ? Double.parseDouble(loadStr) : 0.0;
+
+        // Thu thập các dòng cùng cấu hình cùng pha để tính median
+        List<Double> sameConfigElapsed = new ArrayList<Double>();
+        for (int i = 1; i < allRows.size(); i++) {
+            String[] row = allRows.get(i);
+            if (row.length <= CsvSchema.STATUS_INDEX) continue;
+            if (algo.equals(row[CsvSchema.ALGORITHM_INDEX])
+                    && variant.equals(row[CsvSchema.VARIANT_INDEX])
+                    && dataset.equals(row[CsvSchema.DATASET_INDEX])
+                    && targetPhase.equals(row[CsvSchema.PHASE_INDEX])
+                    && "ok".equals(row[CsvSchema.STATUS_INDEX])) {
+                String pStr = CsvParams.value(row[CsvSchema.PARAMS_INDEX], "p");
+                String aStr = CsvParams.value(row[CsvSchema.PARAMS_INDEX], "alpha");
+                boolean cMode = row[CsvSchema.OPS_COUNT_INDEX].trim().length() > 0;
+                if (pStr != null && Integer.parseInt(pStr) == p
+                        && aStr != null && Double.parseDouble(aStr) == alpha
+                        && cMode == countMode) {
+                    String el = row[CsvSchema.ELAPSED_MS_INDEX];
+                    if (el.length() > 0) {
+                        try {
+                            sameConfigElapsed.add(Double.parseDouble(el));
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+            }
+        }
+
+        Collections.sort(sameConfigElapsed);
+        double refElapsed;
+        String refDesc;
+        if (sameConfigElapsed.isEmpty()) {
+            refElapsed = origElapsedMs.length() > 0 ? Double.parseDouble(origElapsedMs) : 0.0;
+            refDesc = origElapsedMs + " ms (dòng gốc)";
+        } else {
+            int sz = sameConfigElapsed.size();
+            refElapsed = sz % 2 == 1
+                    ? sameConfigElapsed.get(sz / 2)
+                    : (sameConfigElapsed.get(sz / 2 - 1) + sameConfigElapsed.get(sz / 2)) / 2.0;
+            refDesc = String.format(java.util.Locale.US, "%.3f ms (median %d lượt)", refElapsed, sz);
+        }
+
+        RunConfig rerunConfig = new RunConfig(rq, algo, variant, dataset, 0L, p, alpha,
+                c, tau, load, queries, seed, repeat, xmx, "", 60, countMode);
+
+        java.nio.file.Path rerunCsv = Paths.get("results", "raw", "dev", "rerun.csv");
+        if (rerunCsv.getParent() != null) {
+            java.nio.file.Files.createDirectories(rerunCsv.getParent());
+        }
+        java.nio.file.Files.deleteIfExists(rerunCsv);
+
+        Runner.RunResult runResult = Runner.runWithCsv(rerunConfig, rerunCsv, Paths.get("."));
+
+        Runner.PhaseResult matchedPhase = null;
+        for (Runner.PhaseResult pr : runResult.phases) {
+            if (targetPhase.equals(pr.phase)) {
+                matchedPhase = pr;
+                break;
+            }
+        }
+
+        if (matchedPhase == null) {
+            System.err.println("Lỗi: Pha " + targetPhase + " không có trong kết quả chạy lại");
+            System.exit(1);
+            return;
+        }
+
+        String newStatus = matchedPhase.status;
+        String newOutputCheck = matchedPhase.outputCheck;
+        String newElapsedMs = matchedPhase.elapsedMs;
+        double newElapsed = newElapsedMs.length() > 0 ? Double.parseDouble(newElapsedMs) : 0.0;
+
+        boolean statusMatch = origStatus.equals(newStatus);
+        boolean outputMatch = origOutputCheck.equals(newOutputCheck);
+        double ratio = refElapsed > 0.0 ? newElapsed / refElapsed : 1.0;
+        boolean timeMatch = "ok".equals(newStatus) && (refElapsed <= 0.0 || (ratio >= 0.5 && ratio <= 2.0));
+
+        boolean matched = statusMatch && outputMatch && timeMatch;
+
+        System.out.println("===== KẾT QUẢ CHẠY LẠI (RERUN) =====");
+        System.out.println("run_id:        " + targetRunId);
+        System.out.println("Pha:           " + targetPhase);
+        System.out.println("Cấu hình:      algo=" + algo + " variant=" + variant + " p=" + p
+                + " alpha=" + alpha + " seed=" + seed + " repeat=" + repeat
+                + (countMode ? " (chế độ --count)" : ""));
+        System.out.println("----------------------------------------------------------------------");
+        System.out.printf(java.util.Locale.US, "%-15s | %-25s | %-18s | %s%n",
+                "Chỉ số", "Dòng gốc / Tham chiếu", "Chạy lại mới", "Đánh giá");
+        System.out.println("----------------------------------------------------------------------");
+        System.out.printf(java.util.Locale.US, "%-15s | %-25s | %-18s | %s%n",
+                "Status", origStatus, newStatus, (statusMatch ? "GIỐNG" : "KHÁC"));
+        System.out.printf(java.util.Locale.US, "%-15s | %-25s | %-18s | %s%n",
+                "Output Check", origOutputCheck, newOutputCheck, (outputMatch ? "GIỐNG" : "KHÁC"));
+        System.out.printf(java.util.Locale.US, "%-15s | %-25s | %-18s | %s%n",
+                "Thời gian (ms)", refDesc,
+                String.format(java.util.Locale.US, "%.3f (%.3fx)", newElapsed, ratio),
+                (timeMatch ? "TRONG KHOẢNG (0.5 - 2.0x)" : "NGOÀI KHOẢNG"));
+        System.out.println("----------------------------------------------------------------------");
+        System.out.println("KẾT LUẬN: " + (matched ? "KHỚP" : "KHÔNG KHỚP")
+                + " (theo tiêu chí mục 10.1: status và output_check giống, thời gian trong 0.5-2.0x)");
+        System.out.println("======================================================================");
+
+        if (!matched) {
+            System.exit(1);
+        }
+    }
+
     /** In cú pháp các chế độ CLI hỗ trợ. */
     private static void printUsage() {
-        System.err.println("Usage: java -jar hashbench.jar --run [--timeout-sec N]"
-                + " [--machine-id ID] | --count [--timeout-sec N]"
-                + " [--machine-id ID] | --selftest");
+        System.err.println("Usage:\n"
+                + "  java -jar hashbench.jar --bench --rq <RQ> --algo <algo> --variant <var> ... [--resume] [--profile]\n"
+                + "  java -jar hashbench.jar --rerun <run_id> --csv <file>\n"
+                + "  java -jar hashbench.jar --run [--timeout-sec N] [--machine-id ID] | --count | --selftest");
     }
 }
