@@ -426,7 +426,7 @@ public final class CsvValidator {
                 continue;
             }
             String dataset = row[CsvSchema.DATASET_INDEX];
-            if (!"rq1a".equals(dataset) && !"rq1b".equals(dataset)) {
+            if (!"rq1a".equals(dataset) && !"rq1b".equals(dataset) && !"rq1clust".equals(dataset)) {
                 continue;
             }
             String group = row[CsvSchema.ALGORITHM_INDEX] + "/" + row[CsvSchema.VARIANT_INDEX]

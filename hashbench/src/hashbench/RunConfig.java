@@ -98,7 +98,7 @@ public final class RunConfig {
         this.algo = algo;
         this.variant = variant;
         this.dataset = dataset;
-        this.n = "rq1a".equals(dataset) || "rq1b".equals(dataset)
+        this.n = "rq1a".equals(dataset) || "rq1b".equals(dataset) || "rq1clust".equals(dataset)
                 ? Math.round(alpha * (1L << p)) : n;
         this.p = p;
         this.alpha = alpha;
@@ -180,7 +180,7 @@ public final class RunConfig {
     /** Trả về danh sách pha do cấu hình chỉ định hoặc mặc định theo dataset. */
     public static List<String> phasesForDataset(String dataset, String configuredPhases) {
         List<String> phases = new ArrayList<String>();
-        if ("rq1a".equals(dataset) || "rq1b".equals(dataset)) {
+        if ("rq1a".equals(dataset) || "rq1b".equals(dataset) || "rq1clust".equals(dataset)) {
             if (configuredPhases == null) {
                 phases.add("build");
                 phases.add("present");

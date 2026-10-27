@@ -359,8 +359,8 @@ public final class Main {
                 throw new IllegalArgumentException("Số giây sleep không hợp lệ");
             }
         }
-        if (!"rq1a".equals(dataset) && !"rq1b".equals(dataset)) {
-            throw new IllegalArgumentException("Measure chỉ hỗ trợ rq1a/rq1b");
+        if (!"rq1a".equals(dataset) && !"rq1b".equals(dataset) && !"rq1clust".equals(dataset)) {
+            throw new IllegalArgumentException("Measure chỉ hỗ trợ rq1a/rq1b/rq1clust");
         }
         if (queriesValue < 0L || queriesValue > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("queries phải nằm trong giới hạn mảng Java");
@@ -370,7 +370,7 @@ public final class Main {
         PhaseLog log = new PhaseLog(procId);
         Measure.Data data;
         try {
-            if (profile) {
+            if (profile && !"rq1clust".equals(dataset)) {
                 Map<String, Double> prof = new LinkedHashMap<String, Double>();
                 long tWarm0 = System.nanoTime();
                 Measure.warmUp(algo, variant, p, alpha, tau,
@@ -406,7 +406,7 @@ public final class Main {
             } else {
                 Measure.warmUp(algo, variant, p, alpha, tau,
                         seed ^ 0x6A09E667F3BCC909L, queries);
-                data = Measure.buildData(seed, p, alpha, queries);
+                data = Measure.buildData(dataset, seed, p, alpha, queries);
                 Counters.reset();
             }
         } catch (OutOfMemoryError error) {

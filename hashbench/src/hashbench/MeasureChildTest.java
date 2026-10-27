@@ -29,6 +29,7 @@ public final class MeasureChildTest {
             testCounters(root.resolve("count"));
             testTauForwarding(root.resolve("tau"));
             testTimeoutHarvesting(root.resolve("timeout"));
+            testClusteredDataset(root.resolve("clustered"));
             System.out.println("MeasureChildTest: ALL PASS");
         } finally {
             deleteTree(root);
@@ -189,6 +190,54 @@ public final class MeasureChildTest {
         assertEquals("", absent[CsvSchema.ELAPSED_MS_INDEX], "elapsed absent");
         assertEquals("not_started", absent[CsvSchema.PHASE_NOTE_INDEX],
                 "absent chưa bắt đầu");
+    }
+
+    /** Kiểm tra dataset rq1clust dồn cụm với sc và lp-tomb. */
+    private static void testClusteredDataset(Path root) throws Exception {
+        Files.createDirectories(root);
+        int p = 10;
+        double alpha = 0.75;
+        long queries = 20000L;
+        long seed = 1L;
+
+        // Kiểm tra tập khóa dồn cụm sinh ra có >= 10% hash < max(1, M/64)
+        int n = (int) Math.round(alpha * (1 << p));
+        String[] clusteredKeys = Generator.generateClusteredKeys(seed, n, p);
+        int clusterLimit = Math.max(1, (1 << p) / 64);
+        int inCluster = 0;
+        for (String k : clusteredKeys) {
+            if (Hashing.hash(k, p) < clusterLimit) {
+                inCluster++;
+            }
+        }
+        assertTrue(inCluster >= (n + 9) / 10, "rq1clust phải có >= 10% khóa dồn cụm");
+
+        RunConfig scConfig = new RunConfig("RQ1", "sc", "base", "rq1clust", 0L, p, alpha,
+                0, Double.POSITIVE_INFINITY, 0.0, queries, seed, 1, "2g", "", 30, false);
+        RunConfig lpConfig = new RunConfig("RQ1", "lp-tomb", "base", "rq1clust", 0L, p, alpha,
+                0, Double.POSITIVE_INFINITY, 0.0, queries, seed, 1, "2g", "", 30, false);
+
+        run(scConfig, root.resolve("sc1.csv"), root);
+        run(scConfig, root.resolve("sc2.csv"), root);
+        run(lpConfig, root.resolve("lp.csv"), root);
+
+        List<String[]> sc1Rows = readCsv(root.resolve("sc1.csv"));
+        List<String[]> sc2Rows = readCsv(root.resolve("sc2.csv"));
+        List<String[]> lpRows = readCsv(root.resolve("lp.csv"));
+
+        assertEquals(4, sc1Rows.size(), "sc hàng");
+        assertEquals(4, lpRows.size(), "lp hàng");
+
+        for (int i = 1; i <= 3; i++) {
+            assertEquals("ok", sc1Rows.get(i)[CsvSchema.STATUS_INDEX], "sc status");
+            assertEquals("ok", lpRows.get(i)[CsvSchema.STATUS_INDEX], "lp status");
+            // Hai lần chạy cùng seed cho output_check y hệt
+            assertEquals(sc1Rows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX],
+                    sc2Rows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX], "sc seed determinism");
+            // output_check present/absent giống nhau giữa sc và lp-tomb
+            assertEquals(sc1Rows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX],
+                    lpRows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX], "output_check sc vs lp");
+        }
     }
 
     /** Tạo cấu hình RQ1 riêng cho từng lượt test. */

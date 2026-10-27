@@ -14,8 +14,37 @@ public final class Measure {
     private Measure() {
     }
 
-    /** Sinh dữ liệu đầu vào và checksum ngoài vùng đo thời gian. */
+    /** Sinh dữ liệu đầu vào và checksum ngoài vùng đo thời gian cho rq1a/rq1b. */
     public static Data buildData(long seed, int p, double alpha, int queries) {
+        return buildDataProfiled(seed, p, alpha, queries, null);
+    }
+
+    /** Sinh dữ liệu đầu vào theo dataset (hỗ trợ rq1clust, rq1a, rq1b). */
+    public static Data buildData(String dataset, long seed, int p, double alpha, int queries) {
+        if ("rq1clust".equals(dataset)) {
+            if (p < 1 || p > 30 || alpha <= 0.0 || alpha > 1.0 || queries < 0) {
+                throw new IllegalArgumentException("p, alpha hoặc queries không hợp lệ");
+            }
+            long roundedN = Math.round(alpha * (1L << p));
+            if (roundedN < 1L || roundedN > Integer.MAX_VALUE - 1L) {
+                throw new IllegalArgumentException("N không thể lưu trong mảng Java");
+            }
+            int n = (int) roundedN;
+            String[] present = Generator.generateClusteredKeys(seed, n, p);
+            long[] presentIds = new long[present.length];
+            for (int i = 0; i < present.length; i++) {
+                presentIds[i] = KeyCodec.decode(present[i]);
+            }
+            String[] absentQueries = Generator.generateAbsentKeys(seed, queries, presentIds);
+            String[] presentQueries = new String[queries];
+            SplittableRandom queryRandom = new SplittableRandom(seed ^ 0x5DEECE66DL);
+            for (int i = 0; i < presentQueries.length; i++) {
+                long queryId = presentIds[queryRandom.nextInt(presentIds.length)];
+                presentQueries[i] = KeyCodec.encode(queryId);
+            }
+            String inputSha256 = Generator.computeSHA256(present, absentQueries);
+            return new Data(present, presentQueries, absentQueries, inputSha256);
+        }
         return buildDataProfiled(seed, p, alpha, queries, null);
     }
 
