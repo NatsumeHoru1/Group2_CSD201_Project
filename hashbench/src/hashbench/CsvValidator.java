@@ -25,8 +25,8 @@ import java.util.Set;
  *  4. phase_note = not_started chỉ đi kèm status timeout/crash/oom.
  *  5. run_id không trùng trong cùng một file và phải có dạng proc_id + "_" + phase.
  *  6. Không có dòng nào có status = wrong (đây là lỗi kết quả, phải báo).
- *  7. output_check phải bằng nhau giữa các thuật toán cùng cấu hình (dataset, seed, phase).
- *  8. Mỗi nhóm (algorithm, variant, cấu hình, seed) phải có đủ ba pha RQ1.
+ *  7. output_check phải bằng nhau giữa các thuật toán cùng cấu hình, load, C, seed và phase.
+ *  8. RQ1 đủ ba pha; RQ2/RQ3 đủ các pha theo proc_id.
  *  9. Các cột số phải parse được; cột chưa đo được thì để trống, không ghi số 0.
  *
  * Lớp này chỉ đọc file, không sửa dòng nào trong CSV.
@@ -85,6 +85,8 @@ public final class CsvValidator {
         String alpha = CsvParams.value(params, "alpha");
         String tau = CsvParams.value(params, "tau");
         String queries = CsvParams.value(params, "queries");
+        String load = CsvParams.value(params, "load");
+        String cycles = CsvParams.value(params, "c");
 
         StringBuilder sb = new StringBuilder();
         if (includeAlgo) {
@@ -95,6 +97,8 @@ public final class CsvValidator {
         sb.append("|p=").append(p != null ? p : "");
         sb.append("|a=").append(alpha != null ? alpha : "");
         sb.append("|t=").append(tau != null ? tau : "");
+        sb.append("|l=").append(load != null ? load : "");
+        sb.append("|c=").append(cycles != null ? cycles : "");
         sb.append("|q=").append(queries != null ? queries : "");
         sb.append('|').append(row[CsvSchema.SEED_INDEX]);
         return sb.toString();
@@ -180,6 +184,7 @@ public final class CsvValidator {
         if (checkCrossAlgorithm) {
             checkOutputCheckAgreement(dataRows, issues);
         }
+        checkRq2ControlAgreement(dataRows, issues);
         checkPhaseCoverage(dataRows, issues);
         checkRepeatVariance(dataRows, issues);
         return new Report(file, issues, dataRows.size());
@@ -405,7 +410,7 @@ public final class CsvValidator {
     }
 
     /**
-     * Kiểm tra output_check bằng nhau giữa các thuật toán cùng cấu hình, seed và phase.
+     * So sánh output_check theo dataset, p, load, C, queries và seed.
      * Đây là bất biến quan trọng nhất: cùng dữ liệu thì kết quả get phải giống nhau.
      */
     private static void checkOutputCheckAgreement(List<String[]> rows, List<Issue> issues) {
@@ -421,7 +426,7 @@ public final class CsvValidator {
             if (outputCheck.length() == 0) {
                 continue;
             }
-            String group = getFullGroupKey(row, false) + "|" + row[CsvSchema.PHASE_INDEX];
+            String group = getOutputCheckGroupKey(row) + "|" + row[CsvSchema.PHASE_INDEX];
             List<String[]> entries = byGroup.get(group);
             if (entries == null) {
                 entries = new ArrayList<String[]>();
@@ -447,18 +452,88 @@ public final class CsvValidator {
         }
     }
 
+    private static String getOutputCheckGroupKey(String[] row) {
+        String params = row[CsvSchema.PARAMS_INDEX];
+        StringBuilder sb = new StringBuilder();
+        sb.append(row[CsvSchema.DATASET_INDEX]);
+        sb.append("|p=").append(valueOrEmpty(CsvParams.value(params, "p")));
+        sb.append("|a=").append(valueOrEmpty(CsvParams.value(params, "alpha")));
+        sb.append("|l=").append(valueOrEmpty(CsvParams.value(params, "load")));
+        sb.append("|c=").append(valueOrEmpty(CsvParams.value(params, "c")));
+        sb.append("|q=").append(valueOrEmpty(CsvParams.value(params, "queries")));
+        sb.append('|').append(row[CsvSchema.SEED_INDEX]);
+        return sb.toString();
+    }
+
+    private static String valueOrEmpty(String value) {
+        return value == null ? "" : value;
+    }
+
+    private static void checkRq2ControlAgreement(List<String[]> rows, List<Issue> issues) {
+        Map<String, Map<String, String[]>> byProcess =
+                new LinkedHashMap<String, Map<String, String[]>>();
+        for (String[] row : rows) {
+            if (row.length != CsvSchema.COLUMNS.length
+                    || !"rq2".equals(row[CsvSchema.DATASET_INDEX])
+                    || !"ok".equals(row[CsvSchema.STATUS_INDEX])) {
+                continue;
+            }
+            String procId = row[CsvSchema.PROC_ID_INDEX];
+            Map<String, String[]> phases = byProcess.get(procId);
+            if (phases == null) {
+                phases = new HashMap<String, String[]>();
+                byProcess.put(procId, phases);
+            }
+            phases.put(row[CsvSchema.PHASE_INDEX], row);
+        }
+        for (Map.Entry<String, Map<String, String[]>> entry : byProcess.entrySet()) {
+            Map<String, String[]> phases = entry.getValue();
+            checkControlPair(entry.getKey(), "present", "ctl_present", phases, issues);
+            checkControlPair(entry.getKey(), "absent", "ctl_absent", phases, issues);
+        }
+    }
+
+    private static void checkControlPair(String procId, String queryPhase,
+            String controlPhase, Map<String, String[]> phases, List<Issue> issues) {
+        String[] query = phases.get(queryPhase);
+        String[] control = phases.get(controlPhase);
+        if (query == null || control == null) {
+            return;
+        }
+        String queryResult = query[CsvSchema.OUTPUT_CHECK_INDEX];
+        String controlResult = control[CsvSchema.OUTPUT_CHECK_INDEX];
+        if (!queryResult.equals(controlResult)) {
+            issues.add(new Issue(0, "output_check cua " + controlPhase + " khac "
+                    + queryPhase + " trong proc_id " + procId + ": "
+                    + controlResult + " != " + queryResult));
+        }
+    }
+
     /**
      * Kiểm tra mỗi nhóm (algorithm, variant, cấu hình, seed) của RQ1 có đủ ba pha.
      * Nhóm thiếu pha thường do tiến trình chết sớm, nên báo để người đo biết.
      */
     private static void checkPhaseCoverage(List<String[]> rows, List<Issue> issues) {
         Map<String, Set<String>> phasesByGroup = new HashMap<String, Set<String>>();
+        Map<String, String> datasetByProcess = new HashMap<String, String>();
         for (String[] row : rows) {
             if (row.length != CsvSchema.COLUMNS.length) {
                 continue;
             }
             String dataset = row[CsvSchema.DATASET_INDEX];
-            if (!"rq1a".equals(dataset) && !"rq1b".equals(dataset) && !"rq1clust".equals(dataset)) {
+            if ("rq2".equals(dataset) || "rq3".equals(dataset)) {
+                String procId = row[CsvSchema.PROC_ID_INDEX];
+                Set<String> phases = phasesByGroup.get(procId);
+                if (phases == null) {
+                    phases = new HashSet<String>();
+                    phasesByGroup.put(procId, phases);
+                    datasetByProcess.put(procId, dataset);
+                }
+                phases.add(row[CsvSchema.PHASE_INDEX]);
+                continue;
+            }
+            if (!"rq1a".equals(dataset) && !"rq1b".equals(dataset)
+                    && !"rq1clust".equals(dataset)) {
                 continue;
             }
             String group = getFullGroupKey(row, true);
@@ -470,6 +545,16 @@ public final class CsvValidator {
             phases.add(row[CsvSchema.PHASE_INDEX]);
         }
         for (Map.Entry<String, Set<String>> entry : phasesByGroup.entrySet()) {
+            String dataset = datasetByProcess.get(entry.getKey());
+            if ("rq2".equals(dataset) || "rq3".equals(dataset)) {
+                List<String> required = RunConfig.phasesForDataset(dataset);
+                if (!entry.getValue().containsAll(required)) {
+                    issues.add(new Issue(0, "proc_id " + entry.getKey()
+                            + " thieu pha " + dataset + " " + required
+                            + ", co: " + entry.getValue()));
+                }
+                continue;
+            }
             Set<String> phases = entry.getValue();
             if (!phases.contains("build") || !phases.contains("present")
                     || !phases.contains("absent")) {

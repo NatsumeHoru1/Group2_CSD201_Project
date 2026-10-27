@@ -599,6 +599,7 @@ public final class Main {
         String tauStr = CsvParams.value(params, "tau");
         double tau = (tauStr == null || "inf".equals(tauStr))
                 ? Double.POSITIVE_INFINITY : Double.parseDouble(tauStr);
+        String expectedTau = tauStr == null ? "inf" : tauStr;
         String queriesStr = CsvParams.value(params, "queries");
         long queries = queriesStr != null ? Long.parseLong(queriesStr) : 0L;
         String cStr = CsvParams.value(params, "c");
@@ -618,9 +619,16 @@ public final class Main {
                     && "ok".equals(row[CsvSchema.STATUS_INDEX])) {
                 String pStr = CsvParams.value(row[CsvSchema.PARAMS_INDEX], "p");
                 String aStr = CsvParams.value(row[CsvSchema.PARAMS_INDEX], "alpha");
+                String tStr = CsvParams.value(row[CsvSchema.PARAMS_INDEX], "tau");
+                String rowCStr = CsvParams.value(row[CsvSchema.PARAMS_INDEX], "c");
+                String rowLoadStr = CsvParams.value(row[CsvSchema.PARAMS_INDEX], "load");
                 boolean cMode = row[CsvSchema.OPS_COUNT_INDEX].trim().length() > 0;
                 if (pStr != null && Integer.parseInt(pStr) == p
                         && aStr != null && Double.parseDouble(aStr) == alpha
+                        && expectedTau.equals(tStr == null ? "inf" : tStr)
+                        && rowCStr != null && Integer.parseInt(rowCStr) == c
+                        && rowLoadStr != null
+                        && Double.compare(Double.parseDouble(rowLoadStr), load) == 0
                         && cMode == countMode) {
                     String el = row[CsvSchema.ELAPSED_MS_INDEX];
                     if (el.length() > 0) {
