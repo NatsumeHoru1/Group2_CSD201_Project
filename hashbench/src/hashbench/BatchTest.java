@@ -23,6 +23,7 @@ public final class BatchTest {
         Path root = Files.createTempDirectory("hashbench-batch-test-");
         try {
             testMatrixGeneration();
+            testRq23MatrixGeneration();
             testBatchExecutionAndResume(root);
             System.out.println("BatchTest: ALL PASS");
         } finally {
@@ -56,24 +57,121 @@ public final class BatchTest {
         assertEquals(144, timeCount, "số dòng thời gian RQ1");
         assertEquals(48, countCount, "số dòng count RQ1");
         assertEquals(8, clustCount, "số dòng dồn cụm rq1clust");
+        assertTrue(Double.isInfinite(configs.get(0).tau), "tau batch mặc định là inf");
+        assertEquals(0.0, configs.get(0).load, "load batch mặc định là 0");
+        assertEquals(0, configs.get(0).c, "c batch mặc định là 0");
 
-        // Kiểm tra proc_id duy nhất cho toàn bộ 200 dòng
         Set<String> procIds = new HashSet<String>();
         for (RunConfig cfg : configs) {
-            String pid = cfg.procId();
-            assertTrue(procIds.add(pid), "proc_id phải duy nhất: " + pid);
+            assertTrue(procIds.add(cfg.procId()),
+                    "proc_id phải duy nhất: " + cfg.procId());
         }
-
-        // Kiểm tra không có hai dòng liên tiếp cùng (cấu hình, thuật toán)
         for (int i = 0; i < configs.size() - 1; i++) {
-            RunConfig c1 = configs.get(i);
-            RunConfig c2 = configs.get(i + 1);
-            boolean sameAlgo = c1.algo.equals(c2.algo);
-            boolean sameConfig = c1.p == c2.p && Double.compare(c1.alpha, c2.alpha) == 0 && c1.dataset.equals(c2.dataset);
-            assertTrue(!(sameAlgo && sameConfig),
-                    "Hai dòng liên tiếp không được cùng (cấu hình, thuật toán) tại dòng " + (i + 1) + ": " + c1.algo + " p=" + c1.p);
+            RunConfig first = configs.get(i);
+            RunConfig second = configs.get(i + 1);
+            boolean sameAlgorithm = first.algo.equals(second.algo);
+            boolean sameConfig = first.p == second.p
+                    && Double.compare(first.alpha, second.alpha) == 0
+                    && first.dataset.equals(second.dataset);
+            assertTrue(!(sameAlgorithm && sameConfig),
+                    "Hai dòng liên tiếp không được cùng (cấu hình, thuật toán) tại dòng "
+                    + (i + 1) + ": " + first.algo + " p=" + first.p);
         }
     }
+
+    /** Kiểm tra ma trận RQ2/RQ3, số lượt, proc_id, mức tải và thứ tự xen kẽ. */
+    private static void testRq23MatrixGeneration() {
+            List<RunConfig> configs = new ArrayList<RunConfig>();
+            for (String line : Batch.generateRq23BatchLines()) {
+                RunConfig config = Batch.parseBatchLine(line, "2g", 60, "test");
+                if (config != null) {
+                    configs.add(config);
+                }
+            }
+            assertEquals(360, configs.size(), "tổng số cấu hình RQ2/RQ3");
+
+            Set<String> procIds = new HashSet<String>();
+            int rq2Count = 0;
+            int rq3Count = 0;
+            int timeCount = 0;
+            int countCount = 0;
+            boolean countGroupStarted = false;
+            for (int i = 0; i < configs.size(); i++) {
+                RunConfig config = configs.get(i);
+                assertTrue(procIds.add(config.procId()),
+                        "proc_id RQ2/RQ3 phải duy nhất: " + config.procId());
+                assertEquals(20, config.p, "p RQ2/RQ3");
+                assertEquals(1000000L, config.queries, "queries RQ2/RQ3");
+                if (config.countMode) {
+                    countGroupStarted = true;
+                    countCount++;
+                } else {
+                    assertTrue(!countGroupStarted, "mọi lượt thời gian phải đứng trước lượt count");
+                    timeCount++;
+                }
+                if ("rq2".equals(config.dataset)) {
+                    rq2Count++;
+                    assertEquals("lp-tomb", config.algo, "RQ2 chỉ dùng lp-tomb");
+                    assertEquals(0.5, config.load, "load RQ2");
+                    assertTrue(Double.isInfinite(config.tau), "tau RQ2 là inf");
+                } else {
+                    rq3Count++;
+                    assertTrue(config.load == 0.5 || config.load == 0.8,
+                            "load RQ3 phải là 0.5 hoặc 0.8");
+                    assertTrue(config.c == 1048576 || config.c == 2097152
+                            || config.c == 4194304, "C RQ3 không hợp lệ");
+                    if ("lp-tomb".equals(config.algo)) {
+                        assertEquals(config.load == 0.5 ? 0.2 : 0.1, config.tau,
+                                "tau lp-tomb theo load");
+                    } else {
+                        assertTrue(Double.isInfinite(config.tau),
+                                "tau thuật toán không lp-tomb là inf");
+                    }
+                }
+                if (i > 0) {
+                    RunConfig previous = configs.get(i - 1);
+                    boolean sameConfiguration = previous.dataset.equals(config.dataset)
+                            && previous.p == config.p
+                            && Double.compare(previous.load, config.load) == 0
+                            && previous.c == config.c
+                            && previous.seed == config.seed
+                            && previous.repeat == config.repeat
+                            && previous.countMode == config.countMode;
+                    assertTrue(!(sameConfiguration && previous.algo.equals(config.algo)
+                            && previous.variant.equals(config.variant)),
+                            "không được lặp config/algorithm liền kề");
+                }
+            }
+            assertEquals(72, rq2Count, "số dòng RQ2");
+            assertEquals(288, rq3Count, "số dòng RQ3");
+            assertEquals(270, timeCount, "số lượt thời gian");
+            assertEquals(90, countCount, "số lượt count");
+            verifyRq3AlgorithmOrder(configs, 54, 216);
+            verifyRq3AlgorithmOrder(configs, 288, 72);
+        }
+
+        private static void verifyRq3AlgorithmOrder(List<RunConfig> configs, int start,
+                int count) {
+            String[] normal = {"lp-tomb", "lp-backshift", "rh", "rh"};
+            String[] reversed = {"rh", "rh", "lp-backshift", "lp-tomb"};
+            String[] normalVariants = {"base", "base", "base", "noearly"};
+            String[] reversedVariants = {"noearly", "base", "base", "base"};
+            for (int offset = 0; offset < count; offset += 4) {
+                RunConfig first = configs.get(start + offset);
+                boolean reverse = ((first.repeat + first.seed) % 2 != 0);
+                String[] algorithms = reverse ? reversed : normal;
+                String[] variants = reverse ? reversedVariants : normalVariants;
+                for (int i = 0; i < 4; i++) {
+                    RunConfig config = configs.get(start + offset + i);
+                    assertEquals(algorithms[i], config.algo, "thứ tự thuật toán RQ3");
+                    assertEquals(variants[i], config.variant, "thứ tự variant RQ3");
+                    assertEquals(first.load, config.load, "block RQ3 phải cùng load");
+                    assertEquals(first.c, config.c, "block RQ3 phải cùng C");
+                    assertEquals(first.seed, config.seed, "block RQ3 phải cùng seed");
+                    assertEquals(first.repeat, config.repeat, "block RQ3 phải cùng repeat");
+                }
+            }
+        }
 
     /** (ii) Chạy batch nhỏ 2 dòng p=10 queries=20000 hai lần với --resume. */
     private static void testBatchExecutionAndResume(Path root) throws Exception {

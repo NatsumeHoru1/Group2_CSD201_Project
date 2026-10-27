@@ -100,6 +100,76 @@ public final class Batch {
         return lines;
     }
 
+    /** Sinh 360 tiến trình RQ2/RQ3: 270 lượt thời gian trước 90 lượt count. */
+    public static List<String> generateRq23BatchLines() {
+        List<String> lines = new ArrayList<String>();
+        lines.add("# RQ2/RQ3: M=2^20, block=5000 chu ky (10^4 thao tac); moi moc C chay lai tu dau.");
+        lines.add("# C_RQ2={0,262144,524288,1048576,2097152,4194304}; C_RQ3={1048576,2097152,4194304}.");
+        lines.add("# N=round(load*2^p); query tren bang sau workload, RQ2 them bang doi chung.");
+
+        int[] rq2Cycles = {0, 262144, 524288, 1048576, 2097152, 4194304};
+        int[] rq3Cycles = {1048576, 2097152, 4194304};
+        double[] loads = {0.5, 0.8};
+
+        for (int repeat = 1; repeat <= 3; repeat++) {
+            for (int seed = 1; seed <= 3; seed++) {
+                for (int cycles : rq2Cycles) {
+                    lines.add(formatRq23Line("RQ2", "lp-tomb", "base", "rq2",
+                            0.5, cycles, Double.POSITIVE_INFINITY, seed, repeat, 0));
+                }
+            }
+        }
+        for (int repeat = 1; repeat <= 3; repeat++) {
+            for (int seed = 1; seed <= 3; seed++) {
+                for (double load : loads) {
+                    for (int cycles : rq3Cycles) {
+                        addRq3Algorithms(lines, load, cycles, seed, repeat, 0);
+                    }
+                }
+            }
+        }
+        for (int seed = 1; seed <= 3; seed++) {
+            for (int cycles : rq2Cycles) {
+                lines.add(formatRq23Line("RQ2", "lp-tomb", "base", "rq2",
+                        0.5, cycles, Double.POSITIVE_INFINITY, seed, 1, 1));
+            }
+        }
+        for (int seed = 1; seed <= 3; seed++) {
+            for (double load : loads) {
+                for (int cycles : rq3Cycles) {
+                    addRq3Algorithms(lines, load, cycles, seed, 1, 1);
+                }
+            }
+        }
+        return lines;
+    }
+
+    private static void addRq3Algorithms(List<String> lines, double load, int cycles,
+            int seed, int repeat, int count) {
+        String[] algos = {"lp-tomb", "lp-backshift", "rh", "rh"};
+        String[] variants = {"base", "base", "base", "noearly"};
+        double[] taus = {load == 0.5 ? 0.2 : 0.1,
+            Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY,
+            Double.POSITIVE_INFINITY};
+        boolean reverse = ((repeat + seed) % 2 != 0);
+        for (int i = 0; i < algos.length; i++) {
+            int index = reverse ? algos.length - 1 - i : i;
+            lines.add(formatRq23Line("RQ3", algos[index], variants[index], "rq3",
+                    load, cycles, taus[index], seed, repeat, count));
+        }
+    }
+
+    private static String formatRq23Line(String rq, String algo, String variant,
+            String dataset, double load, int cycles, double tau, long seed,
+            int repeat, int count) {
+        return "rq=" + rq + " algo=" + algo + " variant=" + variant + " dataset=" + dataset
+                + " p=20 alpha=0.00 load=" + String.format(Locale.US, "%.2f", load)
+                + " c=" + cycles + " tau=" + (Double.isInfinite(tau)
+                        ? "inf" : String.format(Locale.US, "%.1f", tau))
+                + " seed=" + seed + " repeat=" + repeat
+                + " queries=1000000 count=" + count;
+    }
+
     private static String formatBatchLine(String rq, String algo, String variant, String dataset,
             int p, double alpha, long seed, int repeat, long queries, int count) {
         return "rq=" + rq + " algo=" + algo + " variant=" + variant + " dataset=" + dataset
@@ -116,6 +186,20 @@ public final class Batch {
         List<String> lines = generateRq1BatchLines();
         try (BufferedWriter writer = Files.newBufferedWriter(outPath, StandardCharsets.UTF_8)) {
             for (String line : lines) {
+                writer.write(line);
+                writer.newLine();
+            }
+        }
+    }
+
+    /** Ghi ma trận RQ2/RQ3 ra đĩa. */
+    public static void writeRq23BatchFile(Path outPath) throws IOException {
+        Path parent = outPath.toAbsolutePath().getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+        try (BufferedWriter writer = Files.newBufferedWriter(outPath, StandardCharsets.UTF_8)) {
+            for (String line : generateRq23BatchLines()) {
                 writer.write(line);
                 writer.newLine();
             }
@@ -142,17 +226,20 @@ public final class Batch {
         String variant = kv.containsKey("variant") ? kv.get("variant") : "base";
         String dataset = kv.get("dataset");
         int p = Integer.parseInt(kv.get("p"));
-        double alpha = Double.parseDouble(kv.get("alpha"));
+        double alpha = kv.containsKey("alpha") ? Double.parseDouble(kv.get("alpha")) : 0.0;
         long seed = Long.parseLong(kv.get("seed"));
         int repeat = kv.containsKey("repeat") ? Integer.parseInt(kv.get("repeat")) : 1;
         long queries = kv.containsKey("queries") ? Long.parseLong(kv.get("queries")) : 1000000L;
         boolean count = "1".equals(kv.get("count"));
         double tau = kv.containsKey("tau") ? ("inf".equals(kv.get("tau")) ? Double.POSITIVE_INFINITY : Double.parseDouble(kv.get("tau"))) : Double.POSITIVE_INFINITY;
+        double load = kv.containsKey("load") ? Double.parseDouble(kv.get("load")) : 0.0;
+        int cycles = kv.containsKey("c") ? Integer.parseInt(kv.get("c")) : 0;
         String xmx = kv.containsKey("xmx") ? kv.get("xmx") : defaultXmx;
         int timeoutSec = kv.containsKey("timeout-sec") ? Integer.parseInt(kv.get("timeout-sec")) : defaultTimeoutSec;
         String machineId = kv.containsKey("machine-id") ? kv.get("machine-id") : defaultMachineId;
 
-        return new RunConfig(rq, algo, variant, dataset, 0L, p, alpha, 0, tau, 0.0, queries, seed, repeat, xmx, machineId, timeoutSec, count);
+        return new RunConfig(rq, algo, variant, dataset, 0L, p, alpha, cycles,
+                tau, load, queries, seed, repeat, xmx, machineId, timeoutSec, count);
     }
 
     /** Đọc file batch thành danh sách RunConfig. */

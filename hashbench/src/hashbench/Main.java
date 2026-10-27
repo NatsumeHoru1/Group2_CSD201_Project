@@ -33,6 +33,11 @@ public final class Main {
             return;
         }
 
+        if (hasFlag(args, "--batch-gen-rq23")) {
+            runBatchGenRq23(args);
+            return;
+        }
+
         if (hasFlag(args, "--batch")) {
             runBatch(args);
             return;
@@ -732,6 +737,19 @@ public final class Main {
         System.out.println("Đã sinh ma trận RQ1 (200 tiến trình) ra: " + outPath);
     }
 
+    /** Sinh ma trận RQ2/RQ3 360 tiến trình ra file batch. */
+    private static void runBatchGenRq23(String[] args) throws Exception {
+        String out = "bench/batch_rq23.txt";
+        for (int i = 0; i < args.length; i++) {
+            if ("--out".equals(args[i]) && i + 1 < args.length) {
+                out = args[++i];
+            }
+        }
+        java.nio.file.Path outPath = Paths.get(out);
+        Batch.writeRq23BatchFile(outPath);
+        System.out.println("Đã sinh ma trận RQ2/RQ3 (360 tiến trình) ra: " + outPath);
+    }
+
     /** Thực thi batch tuần tự từ file batch với resume và nhật ký. */
     private static void runBatch(String[] args) throws Exception {
         String batchFile = null;
@@ -779,6 +797,7 @@ public final class Main {
         System.err.println("Usage:\n"
                 + "  java -jar hashbench.jar --bench --rq <RQ> --algo <algo> --variant <var> ... [--resume] [--profile]\n"
                 + "  java -jar hashbench.jar --batch-gen-rq1 --out <file.txt>\n"
+                + "  java -jar hashbench.jar --batch-gen-rq23 --out <file.txt>\n"
                 + "  java -jar hashbench.jar --batch <file.txt> --out <csv> [--log <file>] [--machine-id ID] [--xmx 2g] [--timeout-sec 60] [--official] [--limit N]\n"
                 + "  java -jar hashbench.jar --rerun <run_id> --csv <file>\n"
                 + "  java -jar hashbench.jar --run [--timeout-sec N] [--machine-id ID] | --count | --selftest");
