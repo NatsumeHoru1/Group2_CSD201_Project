@@ -105,6 +105,7 @@ public final class Main {
         Map<String, String> options = parseOptions(args, 1);
         boolean count = hasFlag(args, "--count");
         boolean profile = hasFlag(args, "--profile");
+        boolean resume = hasFlag(args, "--resume");
         String rq = required(options, "--rq");
         String algo = required(options, "--algo");
         String variant = required(options, "--variant");
@@ -128,9 +129,47 @@ public final class Main {
         RunConfig config = new RunConfig(rq, algo, variant, dataset, 0L, p, alpha,
                 0, tau, 0.0, queries, seed, repeat, xmx, machineId, timeoutSec,
                 count, phases).withProfile(profile);
+
+        java.nio.file.Path outPath = Paths.get(out);
+        if (resume && java.nio.file.Files.exists(outPath)) {
+            List<String> requiredPhases = RunConfig.phasesForDataset(config.dataset, config.phaseNames);
+            Map<String, String> phaseStatus = new HashMap<String, String>();
+            try (java.io.BufferedReader reader = java.nio.file.Files.newBufferedReader(
+                    outPath, java.nio.charset.StandardCharsets.UTF_8)) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.trim().length() == 0) continue;
+                    String[] cells = CsvValidator.splitCsvLine(line);
+                    if (cells.length > CsvSchema.PROC_ID_INDEX
+                            && cells[CsvSchema.PROC_ID_INDEX].equals(config.procId())) {
+                        String ph = cells.length > CsvSchema.PHASE_INDEX ? cells[CsvSchema.PHASE_INDEX] : "";
+                        String st = cells.length > CsvSchema.STATUS_INDEX ? cells[CsvSchema.STATUS_INDEX] : "";
+                        if (ph.length() > 0) {
+                            phaseStatus.put(ph, st);
+                        }
+                    }
+                }
+            }
+            boolean allCompleted = true;
+            for (String reqPhase : requiredPhases) {
+                String st = phaseStatus.get(reqPhase);
+                if (st == null || (!"ok".equals(st) && !"timeout".equals(st) && !"oom".equals(st))) {
+                    allCompleted = false;
+                    break;
+                }
+            }
+            if (allCompleted) {
+                System.out.println("SKIP " + config.procId());
+                return;
+            }
+            if (!phaseStatus.isEmpty()) {
+                System.err.println("CẢNH BÁO: run_id trùng do chạy lại proc_id " + config.procId());
+            }
+        }
+
         Runner.RunResult result;
         try {
-            result = Runner.runWithCsv(config, Paths.get(out), Paths.get("."),
+            result = Runner.runWithCsv(config, outPath, Paths.get("."),
                     options.containsKey("--official"));
         } catch (Runner.OfficialRunException exception) {
             System.err.println(exception.getMessage());
@@ -150,7 +189,8 @@ public final class Main {
         Map<String, String> options = new HashMap<String, String>();
         for (int i = start; i < args.length; i++) {
             String name = args[i];
-            if ("--count".equals(name) || "--official".equals(name) || "--profile".equals(name)) {
+            if ("--count".equals(name) || "--official".equals(name) || "--profile".equals(name)
+                    || "--resume".equals(name)) {
                 options.put(name, "true");
             } else if (name.startsWith("--")) {
                 if (i + 1 >= args.length || args[i + 1].startsWith("--")) {

@@ -175,7 +175,7 @@ public final class CsvValidator {
     }
 
     /** Tách một dòng CSV theo luật dấu phẩy và dấu nháy kép. */
-    private static String[] splitCsvLine(String line) {
+    static String[] splitCsvLine(String line) {
         List<String> cells = new ArrayList<String>();
         StringBuilder current = new StringBuilder();
         boolean quoted = false;

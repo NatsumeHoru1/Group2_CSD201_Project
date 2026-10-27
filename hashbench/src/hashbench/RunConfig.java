@@ -229,4 +229,28 @@ public final class RunConfig {
     private static boolean isFinite(double value) {
         return !Double.isNaN(value) && !Double.isInfinite(value);
     }
+
+    /** Sinh proc_id tất định, chỉ chứa [A-Za-z0-9_-]. */
+    public String procId() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(rq).append('_').append(algo).append('_').append(variant).append('_').append(dataset);
+        sb.append("_p").append(p);
+        sb.append("_a").append(formatDoubleNoDot(alpha));
+        sb.append("_t").append(formatDoubleNoDot(tau));
+        sb.append("_s").append(seed);
+        sb.append("_r").append(repeat);
+        if (countMode) {
+            sb.append("-count");
+        }
+        return sb.toString();
+    }
+
+    /** Định dạng double không dấu chấm: 0.75 -> 0p75, inf -> inf. */
+    public static String formatDoubleNoDot(double v) {
+        if (Double.isInfinite(v)) {
+            return "inf";
+        }
+        String s = Double.toString(v);
+        return s.replace('.', 'p');
+    }
 }

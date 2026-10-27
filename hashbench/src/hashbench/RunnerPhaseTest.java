@@ -66,6 +66,12 @@ public final class RunnerPhaseTest {
                 testCsvAppend(root);
             }
         });
+        failures += runCase("deterministic-proc-id", new TestCase() {
+            @Override
+            public void run(Path root) throws Exception {
+                testDeterministicProcId(root);
+            }
+        });
         failures += runCase("truncated-phase-log", new TestCase() {
             @Override
             public void run(Path root) throws Exception {
@@ -206,14 +212,47 @@ public final class RunnerPhaseTest {
     /** Chạy hai tiến trình vào cùng CSV và xác nhận header chỉ xuất hiện một lần. */
     private static void testCsvAppend(Path root) throws Exception {
         Path csv = root.resolve("append.csv");
-        RunConfig config = config(10, false);
-        Runner.RunResult first = Runner.runWithCsv(config, csv, root);
-        Runner.RunResult second = Runner.runWithCsv(config, csv, root);
+        RunConfig config1 = config(10, false);
+        RunConfig config2 = new RunConfig(config1.rq, config1.algo, config1.variant,
+                config1.dataset, config1.n, config1.p, config1.alpha, config1.c,
+                config1.tau, config1.load, config1.queries, config1.seed, 2,
+                config1.xmx, config1.machineId, config1.timeoutSec, config1.countMode);
+        Runner.RunResult first = Runner.runWithCsv(config1, csv, root);
+        Runner.RunResult second = Runner.runWithCsv(config2, csv, root);
         List<String[]> rows = readCsv(csv);
         assertEquals(CsvSchema.COLUMNS.length, rows.get(0).length, "số cột header");
         assertEquals(1 + first.phases.size() + second.phases.size(), rows.size(),
                 "header duy nhất và số hàng append");
         assertAllRowsValid(rows);
+    }
+
+    /** Kiểm tra proc_id tất định và không trùng lặp giữa các cấu hình khác nhau. */
+    private static void testDeterministicProcId(Path root) throws Exception {
+        RunConfig c1 = new RunConfig("RQ1", "rh", "base", "rq1a", 0L, 18, 0.75, 0,
+                Double.POSITIVE_INFINITY, 0.0, 1000000L, 1L, 1, "2g", "m1", 60, false);
+        assertEquals("RQ1_rh_base_rq1a_p18_a0p75_tinf_s1_r1", c1.procId(), "procId base");
+        assertTrue(c1.procId().matches("[A-Za-z0-9_-]+"), "procId regex");
+        assertEquals(c1.procId(), c1.procId(), "procId tất định");
+
+        RunConfig cCount = c1.withCountMode(true);
+        assertEquals("RQ1_rh_base_rq1a_p18_a0p75_tinf_s1_r1-count", cCount.procId(), "procId count");
+
+        RunConfig cTau = new RunConfig("RQ1", "lp-tomb", "base", "rq1a", 0L, 18, 0.75, 0,
+                0.2, 0.0, 1000000L, 1L, 1, "2g", "m1", 60, false);
+        assertEquals("RQ1_lp-tomb_base_rq1a_p18_a0p75_t0p2_s1_r1", cTau.procId(), "procId tau hữu hạn");
+
+        Set<String> seen = new HashSet<String>();
+        assertTrue(seen.add(c1.procId()), "c1 duy nhất");
+        assertTrue(seen.add(cCount.procId()), "cCount duy nhất");
+        assertTrue(seen.add(cTau.procId()), "cTau duy nhất");
+        assertTrue(seen.add(new RunConfig("RQ1", "rh", "base", "rq1a", 0L, 20, 0.75, 0,
+                Double.POSITIVE_INFINITY, 0.0, 1000000L, 1L, 1, "2g", "m1", 60, false).procId()), "p khác");
+        assertTrue(seen.add(new RunConfig("RQ1", "rh", "base", "rq1a", 0L, 18, 0.5, 0,
+                Double.POSITIVE_INFINITY, 0.0, 1000000L, 1L, 1, "2g", "m1", 60, false).procId()), "alpha khác");
+        assertTrue(seen.add(new RunConfig("RQ1", "rh", "base", "rq1a", 0L, 18, 0.75, 0,
+                Double.POSITIVE_INFINITY, 0.0, 1000000L, 2L, 1, "2g", "m1", 60, false).procId()), "seed khác");
+        assertTrue(seen.add(new RunConfig("RQ1", "rh", "base", "rq1a", 0L, 18, 0.75, 0,
+                Double.POSITIVE_INFINITY, 0.0, 1000000L, 1L, 2, "2g", "m1", 60, false).procId()), "repeat khác");
     }
 
     /** Xác nhận parser bỏ qua dòng cuối phase log không có newline kết thúc. */

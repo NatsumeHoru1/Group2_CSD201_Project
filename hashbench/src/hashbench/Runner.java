@@ -70,10 +70,14 @@ public final class Runner {
         }
         String javaPath = System.getProperty("java.home") + File.separator
                 + "bin" + File.separator + javaName;
-        String procId = UUID.randomUUID().toString();
+        String procId = config.procId();
         Path absoluteWorkingDirectory = workingDirectory.toAbsolutePath().normalize();
         PhaseLog phaseLog = new PhaseLog(procId, absoluteWorkingDirectory);
         Path childOutput = phaseLog.path().resolveSibling(procId + ".stdout");
+        Path childProf = phaseLog.path().resolveSibling(procId + ".prof");
+        Files.deleteIfExists(phaseLog.path());
+        Files.deleteIfExists(childOutput);
+        Files.deleteIfExists(childProf);
         List<String> phases = RunConfig.phasesForDataset(config.dataset, config.phaseNames);
 
         List<String> command = new ArrayList<String>();
