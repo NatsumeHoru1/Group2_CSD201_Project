@@ -78,6 +78,12 @@ public final class RunnerPhaseTest {
                 testTruncatedLog(root);
             }
         });
+        failures += runCase("validator-latest", new TestCase() {
+            @Override
+            public void run(Path root) throws Exception {
+                testValidatorLatestOption(root);
+            }
+        });
         if (failures != 0) {
             throw new AssertionError(failures + " ca kiểm thử thất bại");
         }
@@ -271,6 +277,21 @@ public final class RunnerPhaseTest {
         assertEquals("3", entries.get(0).opsCount, "ops_count trong TSV");
         assertEquals("4", entries.get(0).outputCheck, "output_check trong TSV");
         assertEquals("0123456789abcdef", entries.get(0).inputSha256, "hash trong TSV");
+    }
+
+    /** Kiểm tra validator: CSV có 2 dòng trùng run_id => mặc định FAIL, với latest=true => PASS. */
+    private static void testValidatorLatestOption(Path root) throws Exception {
+        Path csv = root.resolve("dup.csv");
+        RunConfig config = new RunConfig("RQ1", "rh", "base", "rq1a", 0L, 10, 0.75,
+                0, Double.POSITIVE_INFINITY, 0.0, 20000L, 1L, 1, "2g", "test-machine", 10, false);
+        Runner.runWithCsv(config, csv, root);
+        Runner.runWithCsv(config, csv, root);
+
+        CsvValidator.Report defaultReport = CsvValidator.validate(csv, false, false);
+        assertTrue(!defaultReport.isValid(), "Mặc định phải FAIL khi có run_id trùng");
+
+        CsvValidator.Report latestReport = CsvValidator.validate(csv, false, true);
+        assertTrue(latestReport.isValid(), "Với latest=true phải PASS khi có run_id trùng: " + latestReport.issues);
     }
 
     /** Chạy runner vào CSV riêng của test và xác nhận kết quả tiến trình. */

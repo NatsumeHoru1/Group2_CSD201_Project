@@ -127,13 +127,16 @@ public final class CsvValidator {
     }
 
     /**
-     * Kiểm tra một file CSV và trả về báo cáo.
-     *
-     * @param file đường dẫn file CSV
-     * @param checkCrossAlgorithm khi true, thêm kiểm tra output_check bằng nhau
-     *        giữa các thuật toán trong cùng file
+     * Kiểm tra một file CSV và trả về báo cáo (giữ nguyên mặc định không lọc dòng trùng).
      */
     public static Report validate(Path file, boolean checkCrossAlgorithm) throws IOException {
+        return validate(file, checkCrossAlgorithm, false);
+    }
+
+    /**
+     * Kiểm tra một file CSV và trả về báo cáo. Khi latest=true, chỉ giữ dòng cuối cùng của mỗi run_id.
+     */
+    public static Report validate(Path file, boolean checkCrossAlgorithm, boolean latest) throws IOException {
         List<Issue> issues = new ArrayList<Issue>();
         List<String[]> rows = readRows(file, issues);
         if (rows.isEmpty()) {
@@ -143,6 +146,15 @@ public final class CsvValidator {
         String[] header = rows.get(0);
         checkHeader(header, issues);
         List<String[]> dataRows = rows.subList(1, rows.size());
+        if (latest) {
+            Map<String, String[]> lastByRunId = new LinkedHashMap<String, String[]>();
+            for (String[] r : dataRows) {
+                if (r.length > CsvSchema.RUN_ID_INDEX) {
+                    lastByRunId.put(r[CsvSchema.RUN_ID_INDEX], r);
+                }
+            }
+            dataRows = new ArrayList<String[]>(lastByRunId.values());
+        }
         checkRows(dataRows, issues);
         if (checkCrossAlgorithm) {
             checkOutputCheckAgreement(dataRows, issues);
@@ -515,15 +527,24 @@ public final class CsvValidator {
 
     /** Điểm vào CLI: kiểm tra các file CSV được truyền vào. */
     public static void main(String[] args) throws IOException {
-        if (args.length == 0) {
-            System.out.println("Usage: java -cp hashbench/out hashbench.CsvValidator <file.csv> [...]");
+        boolean latest = false;
+        List<String> files = new ArrayList<String>();
+        for (String arg : args) {
+            if ("--latest".equals(arg)) {
+                latest = true;
+            } else {
+                files.add(arg);
+            }
+        }
+        if (files.isEmpty()) {
+            System.out.println("Usage: java -cp hashbench/out hashbench.CsvValidator [--latest] <file.csv> [...]");
             System.exit(2);
             return;
         }
         int totalIssues = 0;
-        for (String arg : args) {
+        for (String arg : files) {
             Path file = java.nio.file.Paths.get(arg);
-            Report report = validate(file, true);
+            Report report = validate(file, true, latest);
             report.print();
             totalIssues += report.issues.size();
         }
