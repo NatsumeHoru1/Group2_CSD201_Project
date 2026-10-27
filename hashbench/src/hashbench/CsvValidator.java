@@ -25,8 +25,8 @@ import java.util.Set;
  *  4. phase_note = not_started chỉ đi kèm status timeout/crash/oom.
  *  5. run_id không trùng trong cùng một file và phải có dạng proc_id + "_" + phase.
  *  6. Không có dòng nào có status = wrong (đây là lỗi kết quả, phải báo).
- *  7. output_check phải bằng nhau giữa các thuật toán cùng (dataset, seed, phase).
- *  8. Mỗi nhóm (algorithm, variant, dataset, seed) phải có đủ ba pha RQ1.
+ *  7. output_check phải bằng nhau giữa các thuật toán cùng cấu hình (dataset, seed, phase).
+ *  8. Mỗi nhóm (algorithm, variant, cấu hình, seed) phải có đủ ba pha RQ1.
  *  9. Các cột số phải parse được; cột chưa đo được thì để trống, không ghi số 0.
  *
  * Lớp này chỉ đọc file, không sửa dòng nào trong CSV.
@@ -77,6 +77,27 @@ public final class CsvValidator {
     };
 
     private CsvValidator() {
+    }
+
+    private static String getFullGroupKey(String[] row, boolean includeAlgo) {
+        String params = row[CsvSchema.PARAMS_INDEX];
+        String p = CsvParams.value(params, "p");
+        String alpha = CsvParams.value(params, "alpha");
+        String tau = CsvParams.value(params, "tau");
+        String queries = CsvParams.value(params, "queries");
+
+        StringBuilder sb = new StringBuilder();
+        if (includeAlgo) {
+            sb.append(row[CsvSchema.ALGORITHM_INDEX]).append('/')
+                    .append(row[CsvSchema.VARIANT_INDEX]).append('|');
+        }
+        sb.append(row[CsvSchema.DATASET_INDEX]);
+        sb.append("|p=").append(p != null ? p : "");
+        sb.append("|a=").append(alpha != null ? alpha : "");
+        sb.append("|t=").append(tau != null ? tau : "");
+        sb.append("|q=").append(queries != null ? queries : "");
+        sb.append('|').append(row[CsvSchema.SEED_INDEX]);
+        return sb.toString();
     }
 
     /** Một vấn đề phát hiện được trong CSV. */
@@ -384,7 +405,7 @@ public final class CsvValidator {
     }
 
     /**
-     * Kiểm tra output_check bằng nhau giữa các thuật toán cùng (dataset, seed, phase).
+     * Kiểm tra output_check bằng nhau giữa các thuật toán cùng cấu hình, seed và phase.
      * Đây là bất biến quan trọng nhất: cùng dữ liệu thì kết quả get phải giống nhau.
      */
     private static void checkOutputCheckAgreement(List<String[]> rows, List<Issue> issues) {
@@ -400,8 +421,7 @@ public final class CsvValidator {
             if (outputCheck.length() == 0) {
                 continue;
             }
-            String group = row[CsvSchema.DATASET_INDEX] + "|" + row[CsvSchema.SEED_INDEX]
-                    + "|" + row[CsvSchema.PHASE_INDEX];
+            String group = getFullGroupKey(row, false) + "|" + row[CsvSchema.PHASE_INDEX];
             List<String[]> entries = byGroup.get(group);
             if (entries == null) {
                 entries = new ArrayList<String[]>();
@@ -428,7 +448,7 @@ public final class CsvValidator {
     }
 
     /**
-     * Kiểm tra mỗi nhóm (algorithm, variant, dataset, seed) của RQ1 có đủ ba pha.
+     * Kiểm tra mỗi nhóm (algorithm, variant, cấu hình, seed) của RQ1 có đủ ba pha.
      * Nhóm thiếu pha thường do tiến trình chết sớm, nên báo để người đo biết.
      */
     private static void checkPhaseCoverage(List<String[]> rows, List<Issue> issues) {
@@ -441,8 +461,7 @@ public final class CsvValidator {
             if (!"rq1a".equals(dataset) && !"rq1b".equals(dataset) && !"rq1clust".equals(dataset)) {
                 continue;
             }
-            String group = row[CsvSchema.ALGORITHM_INDEX] + "/" + row[CsvSchema.VARIANT_INDEX]
-                    + "|" + dataset + "|" + row[CsvSchema.SEED_INDEX];
+            String group = getFullGroupKey(row, true);
             Set<String> phases = phasesByGroup.get(group);
             if (phases == null) {
                 phases = new HashSet<String>();
@@ -487,9 +506,7 @@ public final class CsvValidator {
             } catch (NumberFormatException exception) {
                 continue;
             }
-            String group = row[CsvSchema.ALGORITHM_INDEX] + "/" + row[CsvSchema.VARIANT_INDEX]
-                    + "|" + row[CsvSchema.DATASET_INDEX] + "|" + row[CsvSchema.SEED_INDEX]
-                    + "|" + row[CsvSchema.PHASE_INDEX];
+            String group = getFullGroupKey(row, true) + "|" + row[CsvSchema.PHASE_INDEX];
             List<double[]> samples = elapsedByGroup.get(group);
             if (samples == null) {
                 samples = new ArrayList<double[]>();
