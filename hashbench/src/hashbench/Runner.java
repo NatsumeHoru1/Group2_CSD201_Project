@@ -332,8 +332,11 @@ public final class Runner {
                         entry.emptyRatio, entry.rebuildCount, entry.rebuildMs,
                         entry.blockMedianMs, entry.blockMaxMs, entry.dibMean, entry.dibMax));
                 if ("oom".equals(entry.status) || "crash".equals(entry.status)
-                        || "timeout".equals(entry.status)) {
+                        || "timeout".equals(entry.status) || "wrong".equals(entry.status)) {
                     stoppedStatus = entry.status;
+                    if ("wrong".equals(entry.status)) {
+                        stoppedStatus = "crash";
+                    }
                 }
             } else {
                 stoppedStatus = timedOut ? "timeout" : exitCode == 3 ? "oom" : "crash";

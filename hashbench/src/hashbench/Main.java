@@ -358,6 +358,10 @@ public final class Main {
         String dataset = required(options, "--dataset");
         int p = Integer.parseInt(required(options, "--p"));
         double alpha = Double.parseDouble(required(options, "--alpha"));
+        double load = options.containsKey("--load")
+                ? Double.parseDouble(options.get("--load")) : 0.0;
+        int cycles = options.containsKey("--c")
+                ? Integer.parseInt(options.get("--c")) : 0;
         double tau = options.containsKey("--tau")
                 ? parseTau(options.get("--tau")) : Double.POSITIVE_INFINITY;
         long seed = Long.parseLong(required(options, "--seed"));
@@ -377,12 +381,29 @@ public final class Main {
             }
         }
         if (!"rq1a".equals(dataset) && !"rq1b".equals(dataset) && !"rq1clust".equals(dataset)) {
-            throw new IllegalArgumentException("Measure chỉ hỗ trợ rq1a/rq1b/rq1clust");
+            if (!"rq2".equals(dataset) && !"rq3".equals(dataset)) {
+                throw new IllegalArgumentException(
+                        "Measure chỉ hỗ trợ rq1a/rq1b/rq1clust/rq2/rq3");
+            }
         }
         if (queriesValue < 0L || queriesValue > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("queries phải nằm trong giới hạn mảng Java");
         }
         int queries = (int) queriesValue;
+        if ("rq2".equals(dataset) || "rq3".equals(dataset)) {
+            if (cycles < 0 || !Double.isFinite(load) || load <= 0.0 || load > 1.0) {
+                throw new IllegalArgumentException("--load phải trong (0,1] và --c >= 0");
+            }
+            List<String> workloadPhases = RunConfig.phasesForDataset(
+                    dataset, required(options, "--phases"));
+            PhaseLog workloadLog = new PhaseLog(procId);
+            int exitCode = MeasureWorkload.run(algo, variant, dataset, p, load,
+                    cycles, tau, seed, queries, childCount, workloadPhases, workloadLog);
+            if (exitCode != 0) {
+                System.exit(exitCode);
+            }
+            return;
+        }
         List<String> phases = parsePhaseList(required(options, "--phases"));
         PhaseLog log = new PhaseLog(procId);
         Measure.Data data;

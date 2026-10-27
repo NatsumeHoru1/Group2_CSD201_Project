@@ -34,6 +34,8 @@ CONVENTIONS.md (nháp)
 - Lượt --count ghi ops_count; số truy vấn nằm trong params (queries=...).
 - RQ3: mốc C thuộc {M, 2M, 4M}.
 - Seed: 3 seed cố định, commit vào repo (xem seeds.txt; khai báo tại Generator.FIXED_SEEDS).
+- RQ2/RQ3 input_sha256 = Generator.computeSHA256(workload.pool(), workload.absentQueries()),
+  tức SHA-256 của pool nối tiếp mảng truy vấn vắng mặt theo thứ tự.
 
 6. Validator CSV (TV6)
 - Chạy: java -cp hashbench\out hashbench.CsvValidator [--latest] <file.csv> [file2.csv ...]

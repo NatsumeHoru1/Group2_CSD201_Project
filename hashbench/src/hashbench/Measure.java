@@ -142,6 +142,21 @@ public final class Measure {
                 data.inputSha256, GENERATOR_VERSION);
     }
 
+    /** Đo một thao tác với cùng quy trình GC, heap và nanoTime dùng cho workload mới. */
+    public static Measurement measure(Runnable operation) {
+        if (operation == null) {
+            throw new IllegalArgumentException("operation không được null");
+        }
+        System.gc();
+        resetHeapPeaks();
+        long heapBefore = heapBytes(false);
+        long start = System.nanoTime();
+        operation.run();
+        long elapsedNanos = System.nanoTime() - start;
+        long heapPeak = heapBytes(true);
+        return new Measurement(elapsedNanos, heapBefore, heapPeak);
+    }
+
     /** Trả về tổng dung lượng heap đang dùng hoặc đỉnh heap theo mẫu spec mục 6.4. */
     public static long heapBytes(boolean peak) {
         long sum = 0;
@@ -160,7 +175,7 @@ public final class Measure {
     }
 
     /** Tính tổng theo đề: giá trị tìm thấy cộng một cho mỗi khóa không tìm thấy. */
-    private static long runQueries(HashIndex index, String[] queries) {
+    public static long runQueries(HashIndex index, String[] queries) {
         long check = 0L;
         for (int i = 0; i < queries.length; i++) {
             int value = index.get(queries[i]);
@@ -171,6 +186,19 @@ public final class Measure {
             }
         }
         return check;
+    }
+
+    /** Thời lượng và số đo heap của một Runnable đã đo. */
+    public static final class Measurement {
+        public final long elapsedNanos;
+        public final long heapBefore;
+        public final long heapPeak;
+
+        private Measurement(long elapsedNanos, long heapBefore, long heapPeak) {
+            this.elapsedNanos = elapsedNanos;
+            this.heapBefore = heapBefore;
+            this.heapPeak = heapPeak;
+        }
     }
 
     /** Lưu các mảng đầu vào dùng chung cho những pha của một tiến trình. */
