@@ -318,7 +318,7 @@ public final class Runner {
         for (String phase : phases) {
             if (stoppedStatus != null) {
                 results.add(new PhaseResult(procId, phase, stoppedStatus, "", "not_started",
-                        "", "", "", "", "", ""));
+                        "", "", "", "", "", "", "", "", "", "", "", "", "", ""));
                 continue;
             }
             PhaseLog.Entry entry = byPhase.get(phase);
@@ -326,7 +326,9 @@ public final class Runner {
                 String elapsedMs = "ok".equals(entry.status) ? entry.elapsedMs : "";
                 results.add(new PhaseResult(procId, phase, entry.status, elapsedMs, "",
                         entry.heapBefore, entry.heapPeak, entry.opsCount, entry.outputCheck,
-                        entry.inputSha256, entry.generatorVersion));
+                        entry.inputSha256, entry.generatorVersion, entry.tombRatio,
+                        entry.emptyRatio, entry.rebuildCount, entry.rebuildMs,
+                        entry.blockMedianMs, entry.blockMaxMs, entry.dibMean, entry.dibMax));
                 if ("oom".equals(entry.status) || "crash".equals(entry.status)
                         || "timeout".equals(entry.status)) {
                     stoppedStatus = entry.status;
@@ -334,7 +336,7 @@ public final class Runner {
             } else {
                 stoppedStatus = timedOut ? "timeout" : exitCode == 3 ? "oom" : "crash";
                 results.add(new PhaseResult(procId, phase, stoppedStatus, "", "",
-                        "", "", "", "", "", ""));
+                        "", "", "", "", "", "", "", "", "", "", "", "", "", ""));
             }
         }
         return results;
@@ -353,11 +355,21 @@ public final class Runner {
         public final String outputCheck;
         public final String inputSha256;
         public final String generatorVersion;
+        public final String tombRatio;
+        public final String emptyRatio;
+        public final String rebuildCount;
+        public final String rebuildMs;
+        public final String blockMedianMs;
+        public final String blockMaxMs;
+        public final String dibMean;
+        public final String dibMax;
 
         private PhaseResult(String procId, String phase, String status,
                 String elapsedMs, String phaseNote, String heapBefore, String heapPeak,
                 String opsCount, String outputCheck, String inputSha256,
-                String generatorVersion) {
+                String generatorVersion, String tombRatio, String emptyRatio,
+                String rebuildCount, String rebuildMs, String blockMedianMs,
+                String blockMaxMs, String dibMean, String dibMax) {
             this.procId = procId;
             this.phase = phase;
             this.status = status;
@@ -369,6 +381,14 @@ public final class Runner {
             this.outputCheck = outputCheck;
             this.inputSha256 = inputSha256;
             this.generatorVersion = generatorVersion;
+            this.tombRatio = tombRatio;
+            this.emptyRatio = emptyRatio;
+            this.rebuildCount = rebuildCount;
+            this.rebuildMs = rebuildMs;
+            this.blockMedianMs = blockMedianMs;
+            this.blockMaxMs = blockMaxMs;
+            this.dibMean = dibMean;
+            this.dibMax = dibMax;
         }
 
         /** Tạo run_id duy nhất từ proc_id và tên pha. */

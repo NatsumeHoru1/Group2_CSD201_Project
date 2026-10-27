@@ -266,17 +266,23 @@ public final class RunnerPhaseTest {
         PhaseLog log = new PhaseLog("truncated_test", root);
         log.append("build", "ok", "1.250", "10", "20", "3", "4",
                 "0123456789abcdef", "1.0");
+        log.append("workload", "ok", "3.000", "12", "22", "", "",
+                "fedcba9876543210", "1.0", "0.1", "0.2", "3", "4.5",
+                "5.5", "6.5", "7.5", "8");
         Files.write(log.path(),
                 "present\tok\t2.500\t11\t21\t4\t5\tfedcba9876543210\t1.0"
                         .getBytes(StandardCharsets.UTF_8),
                 java.nio.file.StandardOpenOption.APPEND);
         List<PhaseLog.Entry> entries = log.readCompleted();
-        assertEquals(1, entries.size(), "số dòng log hoàn chỉnh");
+        assertEquals(2, entries.size(), "số dòng log hoàn chỉnh");
         assertEquals("build", entries.get(0).phase, "pha hoàn chỉnh");
         assertEquals("10", entries.get(0).heapBefore, "heap_before trong TSV");
         assertEquals("3", entries.get(0).opsCount, "ops_count trong TSV");
         assertEquals("4", entries.get(0).outputCheck, "output_check trong TSV");
         assertEquals("0123456789abcdef", entries.get(0).inputSha256, "hash trong TSV");
+        assertEquals("", entries.get(0).tombRatio, "log cũ thiếu thống kê mở rộng");
+        assertEquals("0.1", entries.get(1).tombRatio, "tomb_ratio trong TSV mở rộng");
+        assertEquals("8", entries.get(1).dibMax, "dib_max trong TSV mở rộng");
     }
 
     /** Kiểm tra validator: CSV có 2 dòng trùng run_id => mặc định FAIL, với latest=true => PASS. */

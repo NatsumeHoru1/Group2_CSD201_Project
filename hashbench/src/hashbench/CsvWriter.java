@@ -91,6 +91,14 @@ public final class CsvWriter implements Closeable {
             values[CsvSchema.HEAP_PEAK_BYTES_INDEX] = result.heapPeak;
             values[CsvSchema.OPS_COUNT_INDEX] = result.opsCount;
             values[CsvSchema.OUTPUT_CHECK_INDEX] = result.outputCheck;
+            values[CsvSchema.TOMB_RATIO_INDEX] = result.tombRatio;
+            values[CsvSchema.EMPTY_RATIO_INDEX] = result.emptyRatio;
+            values[CsvSchema.REBUILD_COUNT_INDEX] = result.rebuildCount;
+            values[CsvSchema.REBUILD_MS_INDEX] = result.rebuildMs;
+            values[CsvSchema.BLOCK_MEDIAN_MS_INDEX] = result.blockMedianMs;
+            values[CsvSchema.BLOCK_MAX_MS_INDEX] = result.blockMaxMs;
+            values[CsvSchema.DIB_MEAN_INDEX] = result.dibMean;
+            values[CsvSchema.DIB_MAX_INDEX] = result.dibMax;
         }
         values[CsvSchema.INPUT_SHA256_INDEX] = result.inputSha256;
         values[CsvSchema.GENERATOR_VERSION_INDEX] = result.generatorVersion;
