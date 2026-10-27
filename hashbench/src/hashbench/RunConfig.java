@@ -29,6 +29,7 @@ public final class RunConfig {
     public final int exitCode;
     public final String oomPhase;
     public final String phaseNames;
+    public final boolean profile;
 
     /** Tạo cấu hình test cũ với variant base và heap mặc định 2g. */
     public RunConfig(String rq, String algo, int p, double alpha, int c,
@@ -53,7 +54,7 @@ public final class RunConfig {
                      int timeoutSec, boolean countMode, String phaseNames) {
         this(rq, algo, variant, dataset, n, p, alpha, c, tau, load, queries, seed,
                 repeat, xmx, machineId, timeoutSec, countMode, null, 0L, null, 1, null,
-                phaseNames);
+                phaseNames, false);
     }
 
     /** Khởi tạo và xác thực cấu hình; các hook cuối chỉ phục vụ kiểm thử tiến trình. */
@@ -62,7 +63,7 @@ public final class RunConfig {
                       long seed, int repeat, String xmx, String machineId,
                       int timeoutSec, boolean countMode, String sleepPhase,
                       long sleepSeconds, String exitPhase, int exitCode, String oomPhase,
-                      String phaseNames) {
+                      String phaseNames, boolean profile) {
         if (rq == null || rq.length() == 0 || dataset == null || dataset.length() == 0) {
             throw new IllegalArgumentException("rq và dataset không được rỗng");
         }
@@ -119,35 +120,41 @@ public final class RunConfig {
         this.oomPhase = oomPhase;
         this.phaseNames = phaseNames == null || phaseNames.length() == 0
                 ? null : phaseNames;
+        this.profile = profile;
     }
 
     /** Tạo bản sao bật cờ count cho tiến trình con. */
     public RunConfig withCountMode(boolean enabled) {
-        return copy(enabled, sleepPhase, sleepSeconds, exitPhase, exitCode, oomPhase);
+        return copy(enabled, sleepPhase, sleepSeconds, exitPhase, exitCode, oomPhase, profile);
+    }
+
+    /** Tạo bản sao bật cờ profile cho tiến trình con. */
+    public RunConfig withProfile(boolean profile) {
+        return copy(countMode, sleepPhase, sleepSeconds, exitPhase, exitCode, oomPhase, profile);
     }
 
     /** Tạo bản sao với hook sleep chỉ dùng để kiểm tra timeout. */
     public RunConfig withSleepPhase(String phase, long seconds) {
-        return copy(countMode, phase, seconds, exitPhase, exitCode, oomPhase);
+        return copy(countMode, phase, seconds, exitPhase, exitCode, oomPhase, profile);
     }
 
     /** Tạo bản sao với hook exit chỉ dùng để kiểm tra trạng thái crash. */
     public RunConfig withExitPhase(String phase, int code) {
-        return copy(countMode, sleepPhase, sleepSeconds, phase, code, oomPhase);
+        return copy(countMode, sleepPhase, sleepSeconds, phase, code, oomPhase, profile);
     }
 
     /** Tạo bản sao với hook OutOfMemoryError chỉ dùng để kiểm tra trạng thái oom. */
     public RunConfig withOomPhase(String phase) {
-        return copy(countMode, sleepPhase, sleepSeconds, exitPhase, exitCode, phase);
+        return copy(countMode, sleepPhase, sleepSeconds, exitPhase, exitCode, phase, profile);
     }
 
     /** Sao chép các trường cấu hình trong khi thay đổi duy nhất các tùy chọn test. */
     private RunConfig copy(boolean newCountMode, String newSleepPhase, long newSleepSeconds,
-            String newExitPhase, int newExitCode, String newOomPhase) {
+            String newExitPhase, int newExitCode, String newOomPhase, boolean newProfile) {
         return new RunConfig(rq, algo, variant, dataset, n, p, alpha, c, tau, load,
                 queries, seed, repeat, xmx, machineId, timeoutSec, newCountMode,
                 newSleepPhase, newSleepSeconds, newExitPhase, newExitCode, newOomPhase,
-                phaseNames);
+                phaseNames, newProfile);
     }
 
     /** Tính M = 2^p theo dung lượng bảng. */

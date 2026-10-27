@@ -2,6 +2,7 @@ package hashbench;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.nio.file.Paths;
@@ -103,6 +104,7 @@ public final class Main {
     private static void runBench(String[] args) throws Exception {
         Map<String, String> options = parseOptions(args, 1);
         boolean count = hasFlag(args, "--count");
+        boolean profile = hasFlag(args, "--profile");
         String rq = required(options, "--rq");
         String algo = required(options, "--algo");
         String variant = required(options, "--variant");
@@ -125,7 +127,7 @@ public final class Main {
         String phases = options.get("--phases");
         RunConfig config = new RunConfig(rq, algo, variant, dataset, 0L, p, alpha,
                 0, tau, 0.0, queries, seed, repeat, xmx, machineId, timeoutSec,
-                count, phases);
+                count, phases).withProfile(profile);
         Runner.RunResult result;
         try {
             result = Runner.runWithCsv(config, Paths.get(out), Paths.get("."),
@@ -148,7 +150,7 @@ public final class Main {
         Map<String, String> options = new HashMap<String, String>();
         for (int i = start; i < args.length; i++) {
             String name = args[i];
-            if ("--count".equals(name) || "--official".equals(name)) {
+            if ("--count".equals(name) || "--official".equals(name) || "--profile".equals(name)) {
                 options.put(name, "true");
             } else if (name.startsWith("--")) {
                 if (i + 1 >= args.length || args[i + 1].startsWith("--")) {
@@ -283,6 +285,7 @@ public final class Main {
         String procId = args[1];
         Map<String, String> options = parseOptions(args, 2);
         boolean childCount = options.containsKey("--count");
+        boolean profile = options.containsKey("--profile");
         Main.countMode = childCount;
         System.out.println("Counters.ON=" + Counters.ON);
 
@@ -321,10 +324,43 @@ public final class Main {
         PhaseLog log = new PhaseLog(procId);
         Measure.Data data;
         try {
-            data = Measure.buildData(seed, p, alpha, queries);
-            Measure.warmUp(algo, variant, p, alpha, tau,
-                    seed ^ 0x6A09E667F3BCC909L, queries);
-            Counters.reset();
+            if (profile) {
+                Map<String, Double> prof = new LinkedHashMap<String, Double>();
+                data = Measure.buildDataProfiled(seed, p, alpha, queries, prof);
+                long t0 = System.nanoTime();
+                Measure.warmUp(algo, variant, p, alpha, tau,
+                        seed ^ 0x6A09E667F3BCC909L, queries);
+                long t1 = System.nanoTime();
+                prof.put("warmUp", (t1 - t0) / 1e6);
+                Counters.reset();
+
+                long totalGcTime = 0L;
+                for (java.lang.management.GarbageCollectorMXBean gc
+                        : java.lang.management.ManagementFactory.getGarbageCollectorMXBeans()) {
+                    long colTime = gc.getCollectionTime();
+                    if (colTime > 0) {
+                        totalGcTime += colTime;
+                    }
+                }
+                prof.put("tổng thời gian GC", (double) totalGcTime);
+
+                java.nio.file.Path profPath = java.nio.file.Paths.get("results", "raw", "tmp", procId + ".prof");
+                if (profPath.getParent() != null) {
+                    java.nio.file.Files.createDirectories(profPath.getParent());
+                }
+                try (java.io.BufferedWriter bw = java.nio.file.Files.newBufferedWriter(
+                        profPath, java.nio.charset.StandardCharsets.UTF_8)) {
+                    for (Map.Entry<String, Double> entry : prof.entrySet()) {
+                        bw.write(String.format(java.util.Locale.US, "%s\t%.3f%n",
+                                entry.getKey(), entry.getValue()));
+                    }
+                }
+            } else {
+                data = Measure.buildData(seed, p, alpha, queries);
+                Measure.warmUp(algo, variant, p, alpha, tau,
+                        seed ^ 0x6A09E667F3BCC909L, queries);
+                Counters.reset();
+            }
         } catch (OutOfMemoryError error) {
             appendFailure(log, phases.get(0), "oom", "", "");
             System.err.println("OutOfMemoryError while preparing input: " + error.getMessage());

@@ -124,6 +124,9 @@ public final class Runner {
             if (config.countMode) {
                 command.add("--count");
             }
+            if (config.profile) {
+                command.add("--profile");
+            }
         }
 
         ProcessBuilder builder = new ProcessBuilder(command);

@@ -4,6 +4,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryPoolMXBean;
 import java.lang.management.MemoryType;
 import java.lang.management.MemoryUsage;
+import java.util.Map;
 import java.util.SplittableRandom;
 
 /** Tạo dữ liệu và đo các pha build, present, absent trong tiến trình con. */
@@ -15,6 +16,12 @@ public final class Measure {
 
     /** Sinh dữ liệu đầu vào và checksum ngoài vùng đo thời gian. */
     public static Data buildData(long seed, int p, double alpha, int queries) {
+        return buildDataProfiled(seed, p, alpha, queries, null);
+    }
+
+    /** Sinh dữ liệu và ghi lại thời gian nano/ms của từng bước chuẩn bị nếu có profiler. */
+    public static Data buildDataProfiled(long seed, int p, double alpha, int queries,
+            Map<String, Double> profiler) {
         if (p < 1 || p > 30 || alpha <= 0.0 || alpha > 1.0 || queries < 0) {
             throw new IllegalArgumentException("p, alpha hoặc queries không hợp lệ");
         }
@@ -23,16 +30,32 @@ public final class Measure {
             throw new IllegalArgumentException("N không thể lưu trong mảng Java");
         }
         int n = (int) roundedN;
+
+        long t0 = System.nanoTime();
         long[] presentIds = Generator.generatePresentIds(seed, n);
+        long t1 = System.nanoTime();
         String[] present = Generator.idsToKeys(presentIds);
+        long t2 = System.nanoTime();
         String[] absentQueries = Generator.generateAbsentKeys(seed, queries, presentIds);
+        long t3 = System.nanoTime();
         String[] presentQueries = new String[queries];
         SplittableRandom queryRandom = new SplittableRandom(seed ^ 0x5DEECE66DL);
         for (int i = 0; i < presentQueries.length; i++) {
             long queryId = presentIds[queryRandom.nextInt(presentIds.length)];
             presentQueries[i] = KeyCodec.encode(queryId);
         }
+        long t4 = System.nanoTime();
         String inputSha256 = Generator.computeSHA256(present, absentQueries);
+        long t5 = System.nanoTime();
+
+        if (profiler != null) {
+            profiler.put("sinh ID có mặt", (t1 - t0) / 1e6);
+            profiler.put("idsToKeys", (t2 - t1) / 1e6);
+            profiler.put("sinh khóa vắng mặt", (t3 - t2) / 1e6);
+            profiler.put("sinh truy vấn có mặt", (t4 - t3) / 1e6);
+            profiler.put("computeSHA256", (t5 - t4) / 1e6);
+        }
+
         return new Data(present, presentQueries, absentQueries, inputSha256);
     }
 
