@@ -662,11 +662,12 @@ public final class Main {
         RunConfig rerunConfig = new RunConfig(rq, algo, variant, dataset, 0L, p, alpha,
                 c, tau, load, queries, seed, repeat, xmx, "", 60, countMode);
 
-        java.nio.file.Path rerunCsv = Paths.get("results", "raw", "dev", "rerun.csv");
+        String rerunFileId = targetRunId.replaceAll("[^A-Za-z0-9_-]", "_");
+        java.nio.file.Path rerunCsv = Paths.get("results", "raw", "dev",
+                "rerun_" + rerunFileId + "_" + System.currentTimeMillis() + ".csv");
         if (rerunCsv.getParent() != null) {
             java.nio.file.Files.createDirectories(rerunCsv.getParent());
         }
-        java.nio.file.Files.deleteIfExists(rerunCsv);
 
         Runner.RunResult runResult = Runner.runWithCsv(rerunConfig, rerunCsv, Paths.get("."));
 

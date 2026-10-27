@@ -30,6 +30,9 @@ public final class MeasureChildTest {
             testTauForwarding(root.resolve("tau"));
             testTimeoutHarvesting(root.resolve("timeout"));
             testClusteredDataset(root.resolve("clustered"));
+            testRq2Workload(root.resolve("rq2"));
+            testRq3VariantsAndDeterminism(root.resolve("rq3"));
+            testRq2ZeroCycles(root.resolve("rq2-zero"));
             System.out.println("MeasureChildTest: ALL PASS");
         } finally {
             deleteTree(root);
@@ -238,6 +241,113 @@ public final class MeasureChildTest {
             assertEquals(sc1Rows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX],
                     lpRows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX], "output_check sc vs lp");
         }
+    }
+
+    private static void testRq2Workload(Path root) throws Exception {
+        Files.createDirectories(root);
+        RunConfig config = workloadConfig("lp-tomb", "base", "rq2", 10,
+                0.5, 2048, Double.POSITIVE_INFINITY, 20000, 13L, false);
+        run(config, root.resolve("rq2.csv"), root);
+        List<String[]> rows = readCsv(root.resolve("rq2.csv"));
+        String[] phases = {"build", "workload", "present", "absent",
+            "ctl_present", "ctl_absent"};
+        assertEquals(phases.length + 1, rows.size(), "RQ2 header và sáu pha");
+        for (int i = 0; i < phases.length; i++) {
+            assertEquals(phases[i], rows.get(i + 1)[CsvSchema.PHASE_INDEX],
+                    "thứ tự pha RQ2");
+            assertEquals("ok", rows.get(i + 1)[CsvSchema.STATUS_INDEX],
+                    "status pha RQ2 " + phases[i]);
+        }
+        assertEquals(rows.get(3)[CsvSchema.OUTPUT_CHECK_INDEX],
+                rows.get(5)[CsvSchema.OUTPUT_CHECK_INDEX], "ctl_present checksum");
+        assertEquals(rows.get(4)[CsvSchema.OUTPUT_CHECK_INDEX],
+                rows.get(6)[CsvSchema.OUTPUT_CHECK_INDEX], "ctl_absent checksum");
+        assertMatches("[0-9]+\\.[0-9]{3}",
+                rows.get(2)[CsvSchema.BLOCK_MEDIAN_MS_INDEX], "block median RQ2");
+        assertMatches("[0-9]+\\.[0-9]{3}",
+                rows.get(2)[CsvSchema.BLOCK_MAX_MS_INDEX], "block max RQ2");
+    }
+
+    private static void testRq3VariantsAndDeterminism(Path root) throws Exception {
+        Files.createDirectories(root);
+        String[] algos = {"lp-tomb", "lp-backshift", "rh", "rh"};
+        String[] variants = {"base", "base", "base", "noearly"};
+        double[] taus = {0.1, Double.POSITIVE_INFINITY,
+            Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY};
+        String[] reference = null;
+        String[] referenceHash = null;
+        String[] phases = {"build", "workload", "present", "absent"};
+        for (int i = 0; i < algos.length; i++) {
+            RunConfig config = workloadConfig(algos[i], variants[i], "rq3", 10,
+                    0.8, 1024, taus[i], 20000, 29L, false);
+            Path firstCsv = root.resolve("variant-" + i + "-first.csv");
+            Path secondCsv = root.resolve("variant-" + i + "-second.csv");
+            run(config, firstCsv, root);
+            run(config, secondCsv, root);
+            List<String[]> firstRows = readCsv(firstCsv);
+            List<String[]> secondRows = readCsv(secondCsv);
+            assertEquals(phases.length + 1, firstRows.size(), "RQ3 header và bốn pha");
+            String[] outputs = new String[2];
+            String[] hashes = new String[2];
+            for (int phase = 0; phase < phases.length; phase++) {
+                String[] row = firstRows.get(phase + 1);
+                String[] again = secondRows.get(phase + 1);
+                assertEquals(phases[phase], row[CsvSchema.PHASE_INDEX], "thứ tự pha RQ3");
+                assertEquals("ok", row[CsvSchema.STATUS_INDEX],
+                        "status pha RQ3 " + phases[phase]);
+                assertEquals(row[CsvSchema.OUTPUT_CHECK_INDEX],
+                        again[CsvSchema.OUTPUT_CHECK_INDEX],
+                        "output_check cùng seed/lượt chạy " + phases[phase]);
+                assertEquals(row[CsvSchema.INPUT_SHA256_INDEX],
+                        again[CsvSchema.INPUT_SHA256_INDEX], "SHA cùng seed");
+                if (phase == 2 || phase == 3) {
+                    outputs[phase - 2] = row[CsvSchema.OUTPUT_CHECK_INDEX];
+                    hashes[phase - 2] = row[CsvSchema.INPUT_SHA256_INDEX];
+                }
+            }
+            if (reference == null) {
+                reference = outputs;
+                referenceHash = hashes;
+            } else {
+                assertEquals(reference[0], outputs[0], "RQ3 present giữa thuật toán");
+                assertEquals(reference[1], outputs[1], "RQ3 absent giữa thuật toán");
+                assertEquals(referenceHash[0], hashes[0], "RQ3 present input SHA");
+                assertEquals(referenceHash[1], hashes[1], "RQ3 absent input SHA");
+            }
+        }
+    }
+
+    private static void testRq2ZeroCycles(Path root) throws Exception {
+        Files.createDirectories(root);
+        RunConfig config = workloadConfig("lp-tomb", "base", "rq2", 10,
+                0.5, 0, Double.POSITIVE_INFINITY, 20000, 37L, true);
+        run(config, root.resolve("rq2-zero.csv"), root);
+        List<String[]> rows = readCsv(root.resolve("rq2-zero.csv"));
+        assertEquals(7, rows.size(), "C=0 vẫn có đủ sáu pha RQ2");
+        for (int i = 1; i < rows.size(); i++) {
+            assertEquals("ok", rows.get(i)[CsvSchema.STATUS_INDEX], "status RQ2 C=0");
+        }
+        String[] workload = rows.get(2);
+        assertEquals("", workload[CsvSchema.BLOCK_MEDIAN_MS_INDEX],
+                "C=0 không có block median");
+        assertEquals("", workload[CsvSchema.BLOCK_MAX_MS_INDEX],
+                "C=0 không có block max");
+        assertEquals(rows.get(3)[CsvSchema.OUTPUT_CHECK_INDEX],
+                rows.get(5)[CsvSchema.OUTPUT_CHECK_INDEX],
+                "ctl_present checksum C=0");
+        assertEquals(rows.get(4)[CsvSchema.OUTPUT_CHECK_INDEX],
+                rows.get(6)[CsvSchema.OUTPUT_CHECK_INDEX],
+                "ctl_absent checksum C=0");
+        assertMatches("[0-9]+", rows.get(3)[CsvSchema.OPS_COUNT_INDEX],
+                "count ops_count RQ2");
+    }
+
+    private static RunConfig workloadConfig(String algo, String variant, String dataset,
+            int p, double load, int cycles, double tau, long queries, long seed,
+            boolean countMode) {
+        return new RunConfig("rq2".equals(dataset) ? "RQ2" : "RQ3", algo, variant,
+                dataset, 0L, p, 0.0, cycles, tau, load, queries, seed, 1,
+                "2g", "test", 60, countMode);
     }
 
     /** Tạo cấu hình RQ1 riêng cho từng lượt test. */

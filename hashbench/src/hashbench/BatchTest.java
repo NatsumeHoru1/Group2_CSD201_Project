@@ -204,6 +204,12 @@ public final class BatchTest {
         assertTrue(logLines.get(1).contains("\tRUN\t"), "dòng log 2 là RUN");
         assertTrue(logLines.get(2).contains("\tSKIP\t"), "dòng log 3 là SKIP");
         assertTrue(logLines.get(3).contains("\tSKIP\t"), "dòng log 4 là SKIP");
+
+        Batch.runBatch(batchFile, csvFile, logFile, "2g", 30, "dev", false, 1);
+        logLines = Files.readAllLines(logFile, StandardCharsets.UTF_8);
+        assertEquals(5, logLines.size(), "--limit 1 phải xử lý đúng một cấu hình SKIP");
+        assertTrue(logLines.get(4).contains("\tSKIP\t"),
+                "dòng log cuối của lượt --limit 1 là SKIP");
     }
 
     private static List<String[]> readCsv(Path file) throws IOException {

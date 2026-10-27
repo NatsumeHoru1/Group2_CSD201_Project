@@ -331,6 +331,7 @@ public final class Batch {
 
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
         int total = configs.size();
+        int processedCount = 0;
         int runCount = 0;
         int skipCount = 0;
         int okCount = 0;
@@ -343,10 +344,11 @@ public final class Batch {
         System.out.println("Bắt đầu thực thi batch: " + total + " tiến trình (limit=" + (limit > 0 ? limit : "none") + ")...");
 
         for (int i = 0; i < total; i++) {
-            if (limit > 0 && runCount >= limit) {
+            if (limit > 0 && processedCount >= limit) {
                 System.out.println("Đã đạt giới hạn --limit " + limit + ". Dừng batch.");
                 break;
             }
+            processedCount++;
 
             RunConfig cfg = configs.get(i);
             String procId = cfg.procId();
