@@ -28,6 +28,16 @@ public final class Main {
             return;
         }
 
+        if (hasFlag(args, "--batch-gen-rq1")) {
+            runBatchGenRq1(args);
+            return;
+        }
+
+        if (hasFlag(args, "--batch")) {
+            runBatch(args);
+            return;
+        }
+
         countMode = "--count".equals(args[0])
                 || ("--bench".equals(args[0]) && hasFlag(args, "--count"));
         if ("--selftest".equals(args[0])) {
@@ -673,10 +683,67 @@ public final class Main {
         }
     }
 
+    /** Sinh ma trận RQ1 200 tiến trình ra file batch. */
+    private static void runBatchGenRq1(String[] args) throws Exception {
+        String out = "bench/batch_rq1.txt";
+        for (int i = 0; i < args.length; i++) {
+            if ("--out".equals(args[i]) && i + 1 < args.length) {
+                out = args[++i];
+            }
+        }
+        java.nio.file.Path outPath = Paths.get(out);
+        Batch.writeBatchFile(outPath);
+        System.out.println("Đã sinh ma trận RQ1 (200 tiến trình) ra: " + outPath);
+    }
+
+    /** Thực thi batch tuần tự từ file batch với resume và nhật ký. */
+    private static void runBatch(String[] args) throws Exception {
+        String batchFile = null;
+        String out = "results/raw/batch.csv";
+        String log = "results/raw/batch_log.txt";
+        String machineId = "";
+        String xmx = "2g";
+        int timeoutSec = 60;
+        boolean official = false;
+        int limit = -1;
+
+        for (int i = 0; i < args.length; i++) {
+            if ("--batch".equals(args[i])) {
+                if (i + 1 < args.length && !args[i + 1].startsWith("--")) {
+                    batchFile = args[++i];
+                }
+            } else if ("--out".equals(args[i]) && i + 1 < args.length) {
+                out = args[++i];
+            } else if ("--log".equals(args[i]) && i + 1 < args.length) {
+                log = args[++i];
+            } else if ("--machine-id".equals(args[i]) && i + 1 < args.length) {
+                machineId = args[++i];
+            } else if ("--xmx".equals(args[i]) && i + 1 < args.length) {
+                xmx = args[++i];
+            } else if ("--timeout-sec".equals(args[i]) && i + 1 < args.length) {
+                timeoutSec = Integer.parseInt(args[++i]);
+            } else if ("--official".equals(args[i])) {
+                official = true;
+            } else if ("--limit".equals(args[i]) && i + 1 < args.length) {
+                limit = Integer.parseInt(args[++i]);
+            }
+        }
+
+        if (batchFile == null) {
+            System.err.println("Cú pháp: java -jar hashbench.jar --batch <file.txt> --out <csv> [--log <file>] [--machine-id ID] [--xmx 2g] [--timeout-sec 60] [--official] [--limit N]");
+            System.exit(2);
+            return;
+        }
+
+        Batch.runBatch(Paths.get(batchFile), Paths.get(out), Paths.get(log), xmx, timeoutSec, machineId, official, limit);
+    }
+
     /** In cú pháp các chế độ CLI hỗ trợ. */
     private static void printUsage() {
         System.err.println("Usage:\n"
                 + "  java -jar hashbench.jar --bench --rq <RQ> --algo <algo> --variant <var> ... [--resume] [--profile]\n"
+                + "  java -jar hashbench.jar --batch-gen-rq1 --out <file.txt>\n"
+                + "  java -jar hashbench.jar --batch <file.txt> --out <csv> [--log <file>] [--machine-id ID] [--xmx 2g] [--timeout-sec 60] [--official] [--limit N]\n"
                 + "  java -jar hashbench.jar --rerun <run_id> --csv <file>\n"
                 + "  java -jar hashbench.jar --run [--timeout-sec N] [--machine-id ID] | --count | --selftest");
     }

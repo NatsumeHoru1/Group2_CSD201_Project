@@ -61,6 +61,7 @@ After building, run:
 java -cp hashbench/out hashbench.RunnerPhaseTest
 java -cp hashbench/out hashbench.TV2SelfTest
 java -cp hashbench/out hashbench.MeasureChildTest
+java -cp hashbench/out hashbench.BatchTest
 java -cp hashbench/out hashbench.LpBackshiftSelfTest
 java -cp hashbench/out hashbench.RobinHoodSelfTest
 ```
