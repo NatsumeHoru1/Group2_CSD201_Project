@@ -143,7 +143,7 @@ public final class Generator {
             }
             for (int j = 0; j < key.length(); j++) {
                 char value = key.charAt(j);
-                if (KeyCodec.ALPHABET.indexOf(value) < 0) {
+                if (!((value >= '0' && value <= '9') || (value >= 'A' && value <= 'Z'))) {
                     throw new IllegalArgumentException("Khóa chỉ được chứa ký tự 0-9, A-Z");
                 }
                 buffer[pointer++] = (byte) value;

@@ -372,12 +372,14 @@ public final class Main {
         try {
             if (profile) {
                 Map<String, Double> prof = new LinkedHashMap<String, Double>();
-                data = Measure.buildDataProfiled(seed, p, alpha, queries, prof);
-                long t0 = System.nanoTime();
+                long tWarm0 = System.nanoTime();
                 Measure.warmUp(algo, variant, p, alpha, tau,
                         seed ^ 0x6A09E667F3BCC909L, queries);
-                long t1 = System.nanoTime();
-                prof.put("warmUp", (t1 - t0) / 1e6);
+                long tWarm1 = System.nanoTime();
+                double warmUpMs = (tWarm1 - tWarm0) / 1e6;
+
+                data = Measure.buildDataProfiled(seed, p, alpha, queries, prof);
+                prof.put("warmUp", warmUpMs);
                 Counters.reset();
 
                 long totalGcTime = 0L;
@@ -402,9 +404,9 @@ public final class Main {
                     }
                 }
             } else {
-                data = Measure.buildData(seed, p, alpha, queries);
                 Measure.warmUp(algo, variant, p, alpha, tau,
                         seed ^ 0x6A09E667F3BCC909L, queries);
+                data = Measure.buildData(seed, p, alpha, queries);
                 Counters.reset();
             }
         } catch (OutOfMemoryError error) {
