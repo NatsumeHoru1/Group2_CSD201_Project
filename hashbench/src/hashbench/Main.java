@@ -127,7 +127,10 @@ public final class Main {
         String variant = required(options, "--variant");
         String dataset = required(options, "--dataset");
         int p = Integer.parseInt(required(options, "--p"));
-        double alpha = Double.parseDouble(required(options, "--alpha"));
+        double alpha = options.containsKey("--alpha")
+                ? Double.parseDouble(options.get("--alpha"))
+                : ("rq2".equals(dataset) || "rq3".equals(dataset)
+                        ? 0.0 : Double.parseDouble(required(options, "--alpha")));
         double tau = options.containsKey("--tau")
                 ? parseTau(options.get("--tau")) : Double.POSITIVE_INFINITY;
         long seed = Long.parseLong(required(options, "--seed"));
@@ -142,9 +145,13 @@ public final class Main {
         String out = options.containsKey("--out")
                 ? options.get("--out") : "results/raw/dev/bench.csv";
         String phases = options.get("--phases");
+        double load = options.containsKey("--load")
+                ? Double.parseDouble(options.get("--load")) : 0.0;
+        int c = options.containsKey("--c") ? Integer.parseInt(options.get("--c")) : 0;
         RunConfig config = new RunConfig(rq, algo, variant, dataset, 0L, p, alpha,
-                0, tau, 0.0, queries, seed, repeat, xmx, machineId, timeoutSec,
-                count, phases).withProfile(profile);
+                c, tau, load, queries, seed, repeat, xmx, machineId, timeoutSec,
+                count, phases).withProfile(profile
+                        && !"rq2".equals(dataset) && !"rq3".equals(dataset));
 
         java.nio.file.Path outPath = Paths.get(out);
         if (resume && java.nio.file.Files.exists(outPath)) {

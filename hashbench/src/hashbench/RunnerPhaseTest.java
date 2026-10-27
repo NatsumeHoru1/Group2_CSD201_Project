@@ -259,6 +259,17 @@ public final class RunnerPhaseTest {
                 Double.POSITIVE_INFINITY, 0.0, 1000000L, 2L, 1, "2g", "m1", 60, false).procId()), "seed khác");
         assertTrue(seen.add(new RunConfig("RQ1", "rh", "base", "rq1a", 0L, 18, 0.75, 0,
                 Double.POSITIVE_INFINITY, 0.0, 1000000L, 1L, 2, "2g", "m1", 60, false).procId()), "repeat khác");
+        RunConfig rq2 = new RunConfig("RQ2", "lp-tomb", "base", "rq2", 0L,
+                20, 0.0, 262144, Double.POSITIVE_INFINITY, 0.5, 1000000L,
+                1L, 1, "2g", "m1", 60, false);
+        assertEquals(524288L, rq2.n, "n RQ2 từ load");
+        assertEquals("RQ2_lp-tomb_base_rq2_p20_a0p0_tinf_l0p5_c262144_s1_r1",
+                rq2.procId(), "procId RQ2 có load/c trước seed");
+        assertEquals(Arrays.asList("build", "workload", "present", "absent",
+                "ctl_present", "ctl_absent"), RunConfig.phasesForDataset("rq2"),
+                "thứ tự pha RQ2");
+        assertEquals(Arrays.asList("build", "workload", "present", "absent"),
+                RunConfig.phasesForDataset("rq3"), "thứ tự pha RQ3");
     }
 
     /** Xác nhận parser bỏ qua dòng cuối phase log không có newline kết thúc. */

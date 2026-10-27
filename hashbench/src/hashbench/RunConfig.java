@@ -77,7 +77,11 @@ public final class RunConfig {
         if ("noearly".equals(variant) && !"rh".equals(algo)) {
             throw new IllegalArgumentException("Variant noearly chỉ áp dụng cho rh");
         }
-        if (p < 0 || p > 30 || n < 0L || queries < 0L || repeat < 1) {
+        if (("rq2".equals(dataset) || "rq3".equals(dataset))
+                && (p < 1 || !isFinite(load) || load <= 0.0 || load > 1.0)) {
+            throw new IllegalArgumentException("rq2/rq3 yêu cầu p trong [1,30] và load trong (0,1]");
+        }
+        if (p < 0 || p > 30 || n < 0L || c < 0 || queries < 0L || repeat < 1) {
             throw new IllegalArgumentException("p, n, queries hoặc repeat không hợp lệ");
         }
         if (!isFinite(alpha) || !isFinite(load) || Double.isNaN(tau) || tau < 0.0) {
@@ -99,7 +103,9 @@ public final class RunConfig {
         this.variant = variant;
         this.dataset = dataset;
         this.n = "rq1a".equals(dataset) || "rq1b".equals(dataset) || "rq1clust".equals(dataset)
-                ? Math.round(alpha * (1L << p)) : n;
+                ? Math.round(alpha * (1L << p))
+                : ("rq2".equals(dataset) || "rq3".equals(dataset)
+                        ? Math.round(load * (1L << p)) : n);
         this.p = p;
         this.alpha = alpha;
         this.c = c;
@@ -194,6 +200,26 @@ public final class RunConfig {
             } else {
                 addConfiguredPhases(phases, configuredPhases, true);
             }
+        } else if ("rq2".equals(dataset)) {
+            if (configuredPhases == null) {
+                phases.add("build");
+                phases.add("workload");
+                phases.add("present");
+                phases.add("absent");
+                phases.add("ctl_present");
+                phases.add("ctl_absent");
+            } else {
+                addConfiguredPhases(phases, configuredPhases, true, true);
+            }
+        } else if ("rq3".equals(dataset)) {
+            if (configuredPhases == null) {
+                phases.add("build");
+                phases.add("workload");
+                phases.add("present");
+                phases.add("absent");
+            } else {
+                addConfiguredPhases(phases, configuredPhases, false, true);
+            }
         } else {
             throw new IllegalArgumentException("Dataset chưa hỗ trợ: " + dataset);
         }
@@ -203,10 +229,18 @@ public final class RunConfig {
     /** Tách và kiểm tra pha CLI để không nhận pha không triển khai. */
     private static void addConfiguredPhases(List<String> phases, String configuredPhases,
             boolean allowControl) {
+        addConfiguredPhases(phases, configuredPhases, allowControl, false);
+    }
+
+    private static void addConfiguredPhases(List<String> phases, String configuredPhases,
+            boolean allowControl, boolean allowWorkloadPhases) {
         String[] names = configuredPhases.split(",", -1);
         for (String name : names) {
             if (!"build".equals(name) && !"present".equals(name) && !"absent".equals(name)
-                    && !(allowControl && "control".equals(name))) {
+                    && !(allowControl && "control".equals(name))
+                    && !(allowWorkloadPhases && "workload".equals(name))
+                    && !(allowControl && ("ctl_present".equals(name)
+                            || "ctl_absent".equals(name)))) {
                 throw new IllegalArgumentException("Pha chưa hỗ trợ: " + name);
             }
             phases.add(name);
@@ -237,6 +271,10 @@ public final class RunConfig {
         sb.append("_p").append(p);
         sb.append("_a").append(formatDoubleNoDot(alpha));
         sb.append("_t").append(formatDoubleNoDot(tau));
+        if ("rq2".equals(dataset) || "rq3".equals(dataset)) {
+            sb.append("_l").append(formatDoubleNoDot(load));
+            sb.append("_c").append(c);
+        }
         sb.append("_s").append(seed);
         sb.append("_r").append(repeat);
         if (countMode) {

@@ -116,6 +116,8 @@ public final class Runner {
             addArgument(command, "--dataset", config.dataset);
             addArgument(command, "--p", Integer.toString(config.p));
             addArgument(command, "--alpha", Double.toString(config.alpha));
+            addArgument(command, "--load", Double.toString(config.load));
+            addArgument(command, "--c", Integer.toString(config.c));
             addArgument(command, "--tau", Double.isInfinite(config.tau)
                     ? "inf" : Double.toString(config.tau));
             addArgument(command, "--seed", Long.toString(config.seed));
