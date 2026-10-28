@@ -28,9 +28,7 @@ Danh sách thành viên, MSSV và phần việc kỹ thuật được cập nh�
 - **27/10:** Kiểm thử và nghiệm thu độc lập `SeparateChainingTable` trên nhánh `variant-b`, thực hiện đo pilot kiểm chứng số bước dò thực nghiệm khớp tuyệt đối với lý thuyết Knuth (S_N ≈ 1 + α/2, U_N ≈ α), xác thực tính toàn vẹn dữ liệu CSV qua `CsvValidator`.
 - **28/10:** Hoàn thành soạn thảo cơ sở lý thuyết (Background: SC vs LP, Primary Clustering, Cache locality vs Pointer chasing), phương pháp thực hiện (Methods: SC và Generator), và chuyên đề phân tích bắt buộc Biến thể B (`String.hashCode`, `equals`, và cơ chế Hash Cache trong JDK 8); trích xuất số liệu đối chứng RQ1 chính thức từ tập dữ liệu niêm phong `measure-v1`.
 
-## TV3: Linear Probing với Tombstone
-
-> **Hướng dẫn TV3:** Để cập nhật tên và MSSV vào bài báo khoa học (`paper/paper.tex`), bạn chỉ cần sửa dòng tiêu đề trên thành dạng: `## TV3 - [Họ và tên] (MSSV: [Mã số]): Linear Probing với Tombstone` (ví dụ: `## TV3 - Lê Văn C (MSSV: QE200999): Linear Probing với Tombstone`). Hệ thống GitHub Actions sẽ tự động đồng bộ sang `paper/authors.tex` và `paper/paper.tex`. Ở local, bạn cũng có thể chạy lệnh: `python bench/sync_authors.py`.
+## TV3 - Đinh Thiện Nhân (MSSV: QE190092): Linear Probing với Tombstone
 
 - Cài đặt `lp-tomb` với trạng thái EMPTY/TOMB, tái sử dụng tombstone trong
   insert và hỗ trợ ngưỡng rebuild `tau`.
