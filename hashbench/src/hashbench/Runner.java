@@ -70,10 +70,14 @@ public final class Runner {
         }
         String javaPath = System.getProperty("java.home") + File.separator
                 + "bin" + File.separator + javaName;
-        String procId = UUID.randomUUID().toString();
+        String procId = config.procId();
         Path absoluteWorkingDirectory = workingDirectory.toAbsolutePath().normalize();
         PhaseLog phaseLog = new PhaseLog(procId, absoluteWorkingDirectory);
         Path childOutput = phaseLog.path().resolveSibling(procId + ".stdout");
+        Path childProf = phaseLog.path().resolveSibling(procId + ".prof");
+        Files.deleteIfExists(phaseLog.path());
+        Files.deleteIfExists(childOutput);
+        Files.deleteIfExists(childProf);
         List<String> phases = RunConfig.phasesForDataset(config.dataset, config.phaseNames);
 
         List<String> command = new ArrayList<String>();
@@ -112,6 +116,8 @@ public final class Runner {
             addArgument(command, "--dataset", config.dataset);
             addArgument(command, "--p", Integer.toString(config.p));
             addArgument(command, "--alpha", Double.toString(config.alpha));
+            addArgument(command, "--load", Double.toString(config.load));
+            addArgument(command, "--c", Integer.toString(config.c));
             addArgument(command, "--tau", Double.isInfinite(config.tau)
                     ? "inf" : Double.toString(config.tau));
             addArgument(command, "--seed", Long.toString(config.seed));
@@ -123,6 +129,9 @@ public final class Runner {
             }
             if (config.countMode) {
                 command.add("--count");
+            }
+            if (config.profile) {
+                command.add("--profile");
             }
         }
 
@@ -311,7 +320,7 @@ public final class Runner {
         for (String phase : phases) {
             if (stoppedStatus != null) {
                 results.add(new PhaseResult(procId, phase, stoppedStatus, "", "not_started",
-                        "", "", "", "", "", ""));
+                        "", "", "", "", "", "", "", "", "", "", "", "", "", ""));
                 continue;
             }
             PhaseLog.Entry entry = byPhase.get(phase);
@@ -319,15 +328,20 @@ public final class Runner {
                 String elapsedMs = "ok".equals(entry.status) ? entry.elapsedMs : "";
                 results.add(new PhaseResult(procId, phase, entry.status, elapsedMs, "",
                         entry.heapBefore, entry.heapPeak, entry.opsCount, entry.outputCheck,
-                        entry.inputSha256, entry.generatorVersion));
+                        entry.inputSha256, entry.generatorVersion, entry.tombRatio,
+                        entry.emptyRatio, entry.rebuildCount, entry.rebuildMs,
+                        entry.blockMedianMs, entry.blockMaxMs, entry.dibMean, entry.dibMax));
                 if ("oom".equals(entry.status) || "crash".equals(entry.status)
-                        || "timeout".equals(entry.status)) {
+                        || "timeout".equals(entry.status) || "wrong".equals(entry.status)) {
                     stoppedStatus = entry.status;
+                    if ("wrong".equals(entry.status)) {
+                        stoppedStatus = "crash";
+                    }
                 }
             } else {
                 stoppedStatus = timedOut ? "timeout" : exitCode == 3 ? "oom" : "crash";
                 results.add(new PhaseResult(procId, phase, stoppedStatus, "", "",
-                        "", "", "", "", "", ""));
+                        "", "", "", "", "", "", "", "", "", "", "", "", "", ""));
             }
         }
         return results;
@@ -346,11 +360,21 @@ public final class Runner {
         public final String outputCheck;
         public final String inputSha256;
         public final String generatorVersion;
+        public final String tombRatio;
+        public final String emptyRatio;
+        public final String rebuildCount;
+        public final String rebuildMs;
+        public final String blockMedianMs;
+        public final String blockMaxMs;
+        public final String dibMean;
+        public final String dibMax;
 
         private PhaseResult(String procId, String phase, String status,
                 String elapsedMs, String phaseNote, String heapBefore, String heapPeak,
                 String opsCount, String outputCheck, String inputSha256,
-                String generatorVersion) {
+                String generatorVersion, String tombRatio, String emptyRatio,
+                String rebuildCount, String rebuildMs, String blockMedianMs,
+                String blockMaxMs, String dibMean, String dibMax) {
             this.procId = procId;
             this.phase = phase;
             this.status = status;
@@ -362,6 +386,14 @@ public final class Runner {
             this.outputCheck = outputCheck;
             this.inputSha256 = inputSha256;
             this.generatorVersion = generatorVersion;
+            this.tombRatio = tombRatio;
+            this.emptyRatio = emptyRatio;
+            this.rebuildCount = rebuildCount;
+            this.rebuildMs = rebuildMs;
+            this.blockMedianMs = blockMedianMs;
+            this.blockMaxMs = blockMaxMs;
+            this.dibMean = dibMean;
+            this.dibMax = dibMax;
         }
 
         /** Tạo run_id duy nhất từ proc_id và tên pha. */

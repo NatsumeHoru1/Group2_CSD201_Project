@@ -17,7 +17,7 @@ public class BuggyIndex implements HashIndex {
     }
 
     private final int capacity;
-    private final Map<Long, Integer> map = new HashMap<Long, Integer>();
+    private final Map<String, Integer> map = new HashMap<String, Integer>();
     private final Mode mode;
 
     public BuggyIndex(int capacity, Mode mode) {
@@ -26,7 +26,8 @@ public class BuggyIndex implements HashIndex {
     }
 
     @Override
-    public int put(long key, int value) {
+    public int put(String key, int value) {
+        requireKey(key);
         if (value == NOT_FOUND) throw new IllegalArgumentException("value không được bằng NOT_FOUND");
         if (map.containsKey(key)) {
             map.put(key, value);
@@ -40,14 +41,16 @@ public class BuggyIndex implements HashIndex {
     }
 
     @Override
-    public int get(long key) {
+    public int get(String key) {
+        requireKey(key);
         Integer v = map.get(key);
         if (mode == Mode.WRONG_GET && !map.containsKey(key)) return 0;
         return v == null ? NOT_FOUND : v.intValue();
     }
 
     @Override
-    public boolean remove(long key) {
+    public boolean remove(String key) {
+        requireKey(key);
         if (mode == Mode.WRONG_REMOVE && map.containsKey(key)) {
             return true;
         }
@@ -63,5 +66,9 @@ public class BuggyIndex implements HashIndex {
     @Override
     public int capacity() {
         return capacity;
+    }
+
+    private static void requireKey(String key) {
+        if (key == null) throw new IllegalArgumentException("key không được null");
     }
 }

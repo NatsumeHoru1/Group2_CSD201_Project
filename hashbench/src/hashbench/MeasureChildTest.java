@@ -29,6 +29,10 @@ public final class MeasureChildTest {
             testCounters(root.resolve("count"));
             testTauForwarding(root.resolve("tau"));
             testTimeoutHarvesting(root.resolve("timeout"));
+            testClusteredDataset(root.resolve("clustered"));
+            testRq2Workload(root.resolve("rq2"));
+            testRq3VariantsAndDeterminism(root.resolve("rq3"));
+            testRq2ZeroCycles(root.resolve("rq2-zero"));
             System.out.println("MeasureChildTest: ALL PASS");
         } finally {
             deleteTree(root);
@@ -74,9 +78,17 @@ public final class MeasureChildTest {
         RunConfig config = config("rh", "base", 10, 0.75, 20000, 1L, false, 30);
         Measure.Data data = Measure.buildData(config.seed, config.p, config.alpha,
                 (int) config.queries);
-        Map<Long, Integer> oracle = new HashMap<Long, Integer>();
+        Map<String, Integer> oracle = new HashMap<String, Integer>();
+        Map<String, String> presentObjects = new HashMap<String, String>();
         for (int i = 0; i < data.present.length; i++) {
-            oracle.put(Long.valueOf(data.present[i]), Integer.valueOf(i + 1));
+            oracle.put(data.present[i], Integer.valueOf(i + 1));
+            presentObjects.put(data.present[i], data.present[i]);
+        }
+        for (int i = 0; i < data.presentQueries.length; i++) {
+            String query = data.presentQueries[i];
+            assertTrue(oracle.containsKey(query), "present query phải nằm trong present");
+            assertTrue(query != presentObjects.get(query),
+                    "present query phải là object String độc lập");
         }
         long expectedPresent = expectedCheck(data.presentQueries, oracle);
         long expectedAbsent = expectedCheck(data.absentQueries, oracle);
@@ -183,6 +195,161 @@ public final class MeasureChildTest {
                 "absent chưa bắt đầu");
     }
 
+    /** Kiểm tra dataset rq1clust dồn cụm với sc và lp-tomb. */
+    private static void testClusteredDataset(Path root) throws Exception {
+        Files.createDirectories(root);
+        int p = 10;
+        double alpha = 0.75;
+        long queries = 20000L;
+        long seed = 1L;
+
+        // Kiểm tra tập khóa dồn cụm sinh ra có >= 10% hash < max(1, M/64)
+        int n = (int) Math.round(alpha * (1 << p));
+        String[] clusteredKeys = Generator.generateClusteredKeys(seed, n, p);
+        int clusterLimit = Math.max(1, (1 << p) / 64);
+        int inCluster = 0;
+        for (String k : clusteredKeys) {
+            if (Hashing.hash(k, p) < clusterLimit) {
+                inCluster++;
+            }
+        }
+        assertTrue(inCluster >= (n + 9) / 10, "rq1clust phải có >= 10% khóa dồn cụm");
+
+        RunConfig scConfig = new RunConfig("RQ1", "sc", "base", "rq1clust", 0L, p, alpha,
+                0, Double.POSITIVE_INFINITY, 0.0, queries, seed, 1, "2g", "", 30, false);
+        RunConfig lpConfig = new RunConfig("RQ1", "lp-tomb", "base", "rq1clust", 0L, p, alpha,
+                0, Double.POSITIVE_INFINITY, 0.0, queries, seed, 1, "2g", "", 30, false);
+
+        run(scConfig, root.resolve("sc1.csv"), root);
+        run(scConfig, root.resolve("sc2.csv"), root);
+        run(lpConfig, root.resolve("lp.csv"), root);
+
+        List<String[]> sc1Rows = readCsv(root.resolve("sc1.csv"));
+        List<String[]> sc2Rows = readCsv(root.resolve("sc2.csv"));
+        List<String[]> lpRows = readCsv(root.resolve("lp.csv"));
+
+        assertEquals(4, sc1Rows.size(), "sc hàng");
+        assertEquals(4, lpRows.size(), "lp hàng");
+
+        for (int i = 1; i <= 3; i++) {
+            assertEquals("ok", sc1Rows.get(i)[CsvSchema.STATUS_INDEX], "sc status");
+            assertEquals("ok", lpRows.get(i)[CsvSchema.STATUS_INDEX], "lp status");
+            // Hai lần chạy cùng seed cho output_check y hệt
+            assertEquals(sc1Rows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX],
+                    sc2Rows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX], "sc seed determinism");
+            // output_check present/absent giống nhau giữa sc và lp-tomb
+            assertEquals(sc1Rows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX],
+                    lpRows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX], "output_check sc vs lp");
+        }
+    }
+
+    private static void testRq2Workload(Path root) throws Exception {
+        Files.createDirectories(root);
+        RunConfig config = workloadConfig("lp-tomb", "base", "rq2", 10,
+                0.5, 2048, Double.POSITIVE_INFINITY, 20000, 13L, false);
+        run(config, root.resolve("rq2.csv"), root);
+        List<String[]> rows = readCsv(root.resolve("rq2.csv"));
+        String[] phases = {"build", "workload", "present", "absent",
+            "ctl_present", "ctl_absent"};
+        assertEquals(phases.length + 1, rows.size(), "RQ2 header và sáu pha");
+        for (int i = 0; i < phases.length; i++) {
+            assertEquals(phases[i], rows.get(i + 1)[CsvSchema.PHASE_INDEX],
+                    "thứ tự pha RQ2");
+            assertEquals("ok", rows.get(i + 1)[CsvSchema.STATUS_INDEX],
+                    "status pha RQ2 " + phases[i]);
+        }
+        assertEquals(rows.get(3)[CsvSchema.OUTPUT_CHECK_INDEX],
+                rows.get(5)[CsvSchema.OUTPUT_CHECK_INDEX], "ctl_present checksum");
+        assertEquals(rows.get(4)[CsvSchema.OUTPUT_CHECK_INDEX],
+                rows.get(6)[CsvSchema.OUTPUT_CHECK_INDEX], "ctl_absent checksum");
+        assertMatches("[0-9]+\\.[0-9]{3}",
+                rows.get(2)[CsvSchema.BLOCK_MEDIAN_MS_INDEX], "block median RQ2");
+        assertMatches("[0-9]+\\.[0-9]{3}",
+                rows.get(2)[CsvSchema.BLOCK_MAX_MS_INDEX], "block max RQ2");
+    }
+
+    private static void testRq3VariantsAndDeterminism(Path root) throws Exception {
+        Files.createDirectories(root);
+        String[] algos = {"lp-tomb", "lp-backshift", "rh", "rh"};
+        String[] variants = {"base", "base", "base", "noearly"};
+        double[] taus = {0.1, Double.POSITIVE_INFINITY,
+            Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY};
+        String[] reference = null;
+        String[] referenceHash = null;
+        String[] phases = {"build", "workload", "present", "absent"};
+        for (int i = 0; i < algos.length; i++) {
+            RunConfig config = workloadConfig(algos[i], variants[i], "rq3", 10,
+                    0.8, 1024, taus[i], 20000, 29L, false);
+            Path firstCsv = root.resolve("variant-" + i + "-first.csv");
+            Path secondCsv = root.resolve("variant-" + i + "-second.csv");
+            run(config, firstCsv, root);
+            run(config, secondCsv, root);
+            List<String[]> firstRows = readCsv(firstCsv);
+            List<String[]> secondRows = readCsv(secondCsv);
+            assertEquals(phases.length + 1, firstRows.size(), "RQ3 header và bốn pha");
+            String[] outputs = new String[2];
+            String[] hashes = new String[2];
+            for (int phase = 0; phase < phases.length; phase++) {
+                String[] row = firstRows.get(phase + 1);
+                String[] again = secondRows.get(phase + 1);
+                assertEquals(phases[phase], row[CsvSchema.PHASE_INDEX], "thứ tự pha RQ3");
+                assertEquals("ok", row[CsvSchema.STATUS_INDEX],
+                        "status pha RQ3 " + phases[phase]);
+                assertEquals(row[CsvSchema.OUTPUT_CHECK_INDEX],
+                        again[CsvSchema.OUTPUT_CHECK_INDEX],
+                        "output_check cùng seed/lượt chạy " + phases[phase]);
+                assertEquals(row[CsvSchema.INPUT_SHA256_INDEX],
+                        again[CsvSchema.INPUT_SHA256_INDEX], "SHA cùng seed");
+                if (phase == 2 || phase == 3) {
+                    outputs[phase - 2] = row[CsvSchema.OUTPUT_CHECK_INDEX];
+                    hashes[phase - 2] = row[CsvSchema.INPUT_SHA256_INDEX];
+                }
+            }
+            if (reference == null) {
+                reference = outputs;
+                referenceHash = hashes;
+            } else {
+                assertEquals(reference[0], outputs[0], "RQ3 present giữa thuật toán");
+                assertEquals(reference[1], outputs[1], "RQ3 absent giữa thuật toán");
+                assertEquals(referenceHash[0], hashes[0], "RQ3 present input SHA");
+                assertEquals(referenceHash[1], hashes[1], "RQ3 absent input SHA");
+            }
+        }
+    }
+
+    private static void testRq2ZeroCycles(Path root) throws Exception {
+        Files.createDirectories(root);
+        RunConfig config = workloadConfig("lp-tomb", "base", "rq2", 10,
+                0.5, 0, Double.POSITIVE_INFINITY, 20000, 37L, true);
+        run(config, root.resolve("rq2-zero.csv"), root);
+        List<String[]> rows = readCsv(root.resolve("rq2-zero.csv"));
+        assertEquals(7, rows.size(), "C=0 vẫn có đủ sáu pha RQ2");
+        for (int i = 1; i < rows.size(); i++) {
+            assertEquals("ok", rows.get(i)[CsvSchema.STATUS_INDEX], "status RQ2 C=0");
+        }
+        String[] workload = rows.get(2);
+        assertEquals("", workload[CsvSchema.BLOCK_MEDIAN_MS_INDEX],
+                "C=0 không có block median");
+        assertEquals("", workload[CsvSchema.BLOCK_MAX_MS_INDEX],
+                "C=0 không có block max");
+        assertEquals(rows.get(3)[CsvSchema.OUTPUT_CHECK_INDEX],
+                rows.get(5)[CsvSchema.OUTPUT_CHECK_INDEX],
+                "ctl_present checksum C=0");
+        assertEquals(rows.get(4)[CsvSchema.OUTPUT_CHECK_INDEX],
+                rows.get(6)[CsvSchema.OUTPUT_CHECK_INDEX],
+                "ctl_absent checksum C=0");
+        assertMatches("[0-9]+", rows.get(3)[CsvSchema.OPS_COUNT_INDEX],
+                "count ops_count RQ2");
+    }
+
+    private static RunConfig workloadConfig(String algo, String variant, String dataset,
+            int p, double load, int cycles, double tau, long queries, long seed,
+            boolean countMode) {
+        return new RunConfig("rq2".equals(dataset) ? "RQ2" : "RQ3", algo, variant,
+                dataset, 0L, p, 0.0, cycles, tau, load, queries, seed, 1,
+                "2g", "test", 60, countMode);
+    }
+
     /** Tạo cấu hình RQ1 riêng cho từng lượt test. */
     private static RunConfig config(String algo, String variant, int p, double alpha,
             long queries, long seed, boolean count, int timeoutSec) {
@@ -203,10 +370,10 @@ public final class MeasureChildTest {
     }
 
     /** Tính oracle theo quy ước giá trị tìm thấy cộng một cho mỗi miss. */
-    private static long expectedCheck(long[] queries, Map<Long, Integer> oracle) {
+    private static long expectedCheck(String[] queries, Map<String, Integer> oracle) {
         long total = 0L;
         for (int i = 0; i < queries.length; i++) {
-            Integer value = oracle.get(Long.valueOf(queries[i]));
+            Integer value = oracle.get(queries[i]);
             total += value == null ? 1L : value.intValue();
         }
         return total;

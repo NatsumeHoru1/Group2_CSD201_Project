@@ -5,7 +5,7 @@ import java.util.Map;
 
 /** Bảng giả lập giao diện để kiểm tra runner; STUB, tuyệt đối không dùng để đo chính thức. */
 public class StubHashIndex implements HashIndex {
-    private final Map<Long, Integer> values;
+    private final Map<String, Integer> values;
     private final int tableCapacity;
 
     /** Tạo bảng giả có dung lượng 2^p. */
@@ -14,38 +14,46 @@ public class StubHashIndex implements HashIndex {
             throw new IllegalArgumentException("p phải nằm trong khoảng 0..30");
         }
         this.tableCapacity = 1 << p;
-        this.values = new HashMap<Long, Integer>();
+        this.values = new HashMap<String, Integer>();
     }
 
     /** Thêm khóa mới hoặc cập nhật khóa đang có. */
     @Override
-    public int put(long key, int value) {
+    public int put(String key, int value) {
+        requireKey(key);
         if (value == NOT_FOUND) {
             throw new IllegalArgumentException("value không được bằng NOT_FOUND");
         }
-        Long boxedKey = Long.valueOf(key);
-        if (values.containsKey(boxedKey)) {
-            values.put(boxedKey, Integer.valueOf(value));
+        if (values.containsKey(key)) {
+            values.put(key, Integer.valueOf(value));
             return UPDATED;
         }
         if (values.size() >= tableCapacity) {
             return FULL;
         }
-        values.put(boxedKey, Integer.valueOf(value));
+        values.put(key, Integer.valueOf(value));
         return INSERTED;
     }
 
     /** Tìm giá trị theo khóa. */
     @Override
-    public int get(long key) {
-        Integer value = values.get(Long.valueOf(key));
+    public int get(String key) {
+        requireKey(key);
+        Integer value = values.get(key);
         return value == null ? NOT_FOUND : value.intValue();
     }
 
     /** Xóa khóa nếu khóa đang tồn tại. */
     @Override
-    public boolean remove(long key) {
-        return values.remove(Long.valueOf(key)) != null;
+    public boolean remove(String key) {
+        requireKey(key);
+        return values.remove(key) != null;
+    }
+
+    private static void requireKey(String key) {
+        if (key == null) {
+            throw new IllegalArgumentException("key không được null");
+        }
     }
 
     /** Trả về số khóa đang lưu. */

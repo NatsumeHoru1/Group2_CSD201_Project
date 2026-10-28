@@ -5,71 +5,163 @@ import static hashbench.test.TestHarness.eq;
 import static hashbench.test.TestHarness.test;
 
 import hashbench.HashIndex;
-import hashbench.LongSet;
+import hashbench.HashIndexFactory;
 import hashbench.workload.ControlTable;
 import hashbench.workload.QueryBench;
 import hashbench.workload.Workload;
 import hashbench.test.Registry.Impl;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.Set;
 
-/** Kiểm tra bản thân workload + bảng đối chứng trên từng cài đặt (p = 12 cho nhanh). */
+/**
+ * Kiểm tra Workload API mới và ControlTable.
+ * p = 12 để chạy nhanh; blockCycles = 500.
+ */
 public final class WorkloadTests {
-    private static final int P = 12;
+    private static final int P          = 12;
+    private static final int M          = 1 << P;       // 4096
+    private static final long SEED      = 20261101L;
+    private static final int  BLOCK_CYC = 500;
+
     private WorkloadTests() {}
 
     public static void run(Impl impl) {
-        test("workload tải 0,5, C = 2M, khối 10^3: đúng và khớp bảng đối chứng", new TestHarness.Body() { public void run() { one(impl, 0.5, 2 * M); } });
-        test("workload tải 0,8, C = M: đúng và khớp bảng đối chứng", new TestHarness.Body() { public void run() { one(impl, 0.8, M); } });
-        test("workload có lịch khóa duy nhất và đo block đúng", new TestHarness.Body() { public void run() { blocksAndUniqueKeys(impl); } });
+        test("workload tải 0.5, C=2*M, blockCycles=500: đúng và khớp đối chứng",
+             new TestHarness.Body() { public void run() { one(impl, 0.5, 2 * M); } });
+        test("workload tải 0.5, C=0: execute trả ops=0 blocks=0",
+             new TestHarness.Body() { public void run() { zeroSteps(impl, 0.5); } });
+        test("workload tải 0.8, C=M: đúng và khớp đối chứng",
+             new TestHarness.Body() { public void run() { one(impl, 0.8, M); } });
+        test("generate tất định: cùng seed => y hệt, seed khác => khác",
+             new TestHarness.Body() { public void run() { determinism(); } });
+        test("presentQueries: mọi phần tử trong liveKeys, không có object trùng pool",
+             new TestHarness.Body() { public void run() { presentQueryCheck(); } });
+        test("thời gian generate/execute p=20 (in ra, không assert)",
+             new TestHarness.Body() { public void run() { timingLarge(impl); } });
     }
 
-    private static final int M = 1 << 12;
+    // ------------------------------------------------------------------ //
 
+    /** Kiểm tra đầy đủ một cấu hình (a)(c)(d)(e). */
     static void one(Impl impl, double load, int steps) {
-        Workload w = Workload.generate(P, load, steps, 20261101L, 20_000, 20_000);
+        Workload w = Workload.generate(P, load, steps, SEED, 20_000);
+
+        // (a) pool không trùng, absentQueries không giao pool
+        checkNodup(w);
+
+        // (b) generate hai lần cùng seed => y hệt
+        // (kiểm trong determinism(); ở đây tin tưởng)
+
+        // (d) load + execute
         HashIndex t = impl.f.create(P);
-        int fullCount = w.load(t);
-        eq(0, fullCount, "nạp dữ liệu ban đầu phải không FULL");
-        Workload.Result r = w.execute(t, 1000, null);
+        int fullLoad = w.load(t);
+        eq(0, fullLoad, "nạp dữ liệu ban đầu phải không FULL");
+
+        int needed = (steps <= 0) ? 0 : (int) ((steps + BLOCK_CYC - 1) / BLOCK_CYC);
+        long[] blockNanos = new long[needed == 0 ? 1 : needed];
+        Workload.Result r = w.execute(t, BLOCK_CYC, blockNanos);
+
         eq(0, r.fullCount, "put trong workload không được FULL");
-        eq(w.n, t.size(), "size sau workload");
-        check(w.verify(t), "dữ liệu sau workload sai");
+        eq(w.n, t.size(), "size sau workload == N");
+        check(w.verify(t), "verify() sau workload phải true");
 
-        HashIndex ctl = ControlTable.build(impl.f, P, w);
-        eq(QueryBench.timeGets(ctl, w.presentQueries).checksum, QueryBench.timeGets(t, w.presentQueries).checksum, "checksum truy vấn có mặt (output_check)");
-        long absentSum = QueryBench.timeGets(t, w.absentQueries).checksum;
-        eq(QueryBench.timeGets(ctl, w.absentQueries).checksum, absentSum, "checksum truy vấn vắng mặt");
-    }
-
-    private static void blocksAndUniqueKeys(Impl impl) {
-        Workload w = Workload.generate(4, 0.5, 13, 17L, 3, 5);
-        LongSet unique = new LongSet(w.initialKeys.length + w.insertKeys.length + w.absentQueries.length);
-        for (long key : w.initialKeys) check(unique.add(key), "khóa ban đầu bị trùng");
-        for (long key : w.insertKeys) check(unique.add(key), "khóa thêm bị trùng");
-        for (long key : w.absentQueries) check(unique.add(key), "khóa vắng mặt bị trùng/đụng pool");
-
-        HashIndex table = impl.f.create(4);
-        eq(0, w.load(table), "nạp workload kiểm thử");
-        final int[] expectedOps = {10, 10, 6};
-        final int[] blockCount = {0};
-        Workload.Result result = w.execute(table, 5, new Workload.BlockListener() {
-            public void onBlock(int blockNo, int ops, long elapsedNanos) {
-                eq(blockCount[0], blockNo, "thứ tự block");
-                eq(expectedOps[blockCount[0]], ops, "số thao tác trong block");
-                check(elapsedNanos >= 0L, "thời gian block phải không âm");
-                blockCount[0]++;
+        if (steps > 0) {
+            eq(needed, r.blocks, "số khối = ceil(steps/blockCycles)");
+            for (int i = 0; i < needed; i++) {
+                check(blockNanos[i] > 0, "blockNanos[" + i + "] phải > 0");
             }
-        });
-        eq(26L, result.ops, "số thao tác workload");
-        eq(3, result.blocks, "số block workload");
-        eq(3, blockCount[0], "số callback block");
-        check(w.verify(table), "workload nhỏ sau khi chạy phải hợp lệ");
-        for (long query : w.presentQueries) {
-            check(table.get(query) != HashIndex.NOT_FOUND, "present query phải còn sống");
         }
 
-        HashIndex control = ControlTable.build(impl.f, 4, w);
-        eq(QueryBench.timeGets(table, w.presentQueries).checksum,
-                QueryBench.timeGets(control, w.presentQueries).checksum,
-                "checksum present với bảng đối chứng");
+        // (e) ControlTable: checksum get presentQueries & absentQueries giống nhau
+        HashIndex ctl = impl.f.create(P);
+        ControlTable.fill(ctl, w);
+
+        long pChkT   = QueryBench.timeGets(t,   w.presentQueries()).checksum;
+        long pChkCtl = QueryBench.timeGets(ctl, w.presentQueries()).checksum;
+        eq(pChkT, pChkCtl, "checksum present: workload == đối chứng");
+
+        long aChkT   = QueryBench.timeGets(t,   w.absentQueries()).checksum;
+        long aChkCtl = QueryBench.timeGets(ctl, w.absentQueries()).checksum;
+        eq(aChkT, aChkCtl, "checksum absent: workload == đối chứng");
+    }
+
+    /** (f) steps=0: execute trả ops=0, blocks=0. */
+    static void zeroSteps(Impl impl, double load) {
+        Workload w = Workload.generate(P, load, 0, SEED, 100);
+        HashIndex t = impl.f.create(P);
+        w.load(t);
+        Workload.Result r = w.execute(t, BLOCK_CYC, null);
+        eq(0L,  r.ops,    "ops phải = 0 khi steps=0");
+        eq(0,   r.blocks, "blocks phải = 0 khi steps=0");
+        eq(0,   r.fullCount, "fullCount phải = 0 khi steps=0");
+        check(w.verify(t), "verify sau steps=0");
+    }
+
+    /** (b) tính tất định. */
+    static void determinism() {
+        Workload w1a = Workload.generate(P, 0.5, M, SEED,     500);
+        Workload w1b = Workload.generate(P, 0.5, M, SEED,     500);
+        Workload w2  = Workload.generate(P, 0.5, M, SEED + 1, 500);
+
+        // Cùng seed => pool y hệt
+        check(Arrays.equals(w1a.pool(), w1b.pool()), "pool cùng seed phải giống nhau");
+        check(Arrays.equals(w1a.presentQueries(), w1b.presentQueries()),
+              "presentQueries cùng seed phải giống nhau");
+        check(Arrays.equals(w1a.absentQueries(), w1b.absentQueries()),
+              "absentQueries cùng seed phải giống nhau");
+
+        // Seed khác => pool khác (xác suất va chạm cực thấp)
+        check(!Arrays.equals(w1a.pool(), w2.pool()), "pool seed khác phải khác");
+    }
+
+    /** (a) và (c). */
+    static void checkNodup(Workload w) {
+        String[] pool = w.pool();
+        // pool không có phần tử trùng
+        Set<String> poolSet = new HashSet<String>(Arrays.asList(pool));
+        eq(pool.length, poolSet.size(), "pool không được có phần tử trùng");
+
+        // absentQueries không giao pool
+        for (String k : w.absentQueries()) {
+            check(!poolSet.contains(k), "absentQueries không được nằm trong pool: " + k);
+        }
+
+        // (c) presentQueries: mọi phần tử là khóa sống (nằm trong liveKeys)
+        //     và không có object nào trùng tham chiếu với pool
+        Set<String> liveSet = new HashSet<String>(Arrays.asList(w.liveKeys()));
+        IdentityHashMap<String, Boolean> poolIdentity = new IdentityHashMap<String, Boolean>();
+        for (String s : pool) poolIdentity.put(s, Boolean.TRUE);
+
+        for (String pq : w.presentQueries()) {
+            check(liveSet.contains(pq),
+                  "presentQuery phải là khóa sống: " + pq);
+            check(!poolIdentity.containsKey(pq),
+                  "presentQuery không được là cùng object với phần tử pool");
+        }
+    }
+
+    /** (c) kiểm riêng identity. */
+    static void presentQueryCheck() {
+        Workload w = Workload.generate(P, 0.5, M, SEED, 1000);
+        checkNodup(w);
+    }
+
+    /** Đo thời gian generate/execute p=20 (in ra, không assert). */
+    static void timingLarge(Impl impl) {
+        int bigP = 20;
+        long bigSteps = 1 << 20; // 1048576
+        long t0 = System.currentTimeMillis();
+        Workload w = Workload.generate(bigP, 0.5, bigSteps, 99L, 1000);
+        long genMs = System.currentTimeMillis() - t0;
+        System.out.println("  [timing] p=20 generate: " + genMs + " ms");
+
+        HashIndex t = impl.f.create(bigP);
+        w.load(t);
+        long t1 = System.currentTimeMillis();
+        w.execute(t, 5000, null);
+        long execMs = System.currentTimeMillis() - t1;
+        System.out.println("  [timing] p=20 execute:  " + execMs + " ms");
     }
 }

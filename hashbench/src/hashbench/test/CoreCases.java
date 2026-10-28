@@ -32,7 +32,7 @@ public final class CoreCases {
 
     private static void basic(Impl impl) {
         HashIndex t = impl.f.create(P);
-        long a = keyWithHome(0), b = keyWithHome(1), c = keyWithHome(1);
+        String a = keyWithHome(0), b = keyWithHome(1), c = keyWithHome(1);
         eq(INSERTED, t.put(a, 10), "insert a");
         eq(INSERTED, t.put(b, 20), "insert b");
         eq(UPDATED, t.put(a, 30), "update a");
@@ -47,7 +47,7 @@ public final class CoreCases {
         HashIndex t = impl.f.create(P);
         boolean threw = false;
         try {
-            t.put(123L, NOT_FOUND);
+            t.put("000000000123", NOT_FOUND);
         } catch (IllegalArgumentException e) {
             threw = true;
         }
@@ -57,15 +57,15 @@ public final class CoreCases {
 
     private static void full(Impl impl) {
         HashIndex t = impl.f.create(P);
-        Set<Long> used = new HashSet<Long>();
+        Set<String> used = new HashSet<String>();
         for (int i = 0; i < M; i++) {
-            long k = uniqueKeyWithHome(i % M, used, new SplittableRandom(99L + i));
+            String k = uniqueKeyWithHome(i % M, used, new SplittableRandom(99L + i));
             check(t.put(k, i + 1) == INSERTED, "fill table");
         }
-        long extra = uniqueKeyWithHome(7, used, new SplittableRandom(777L));
+        String extra = uniqueKeyWithHome(7, used, new SplittableRandom(777L));
         eq(FULL, t.put(extra, 999), "put key mới khi đầy phải FULL");
         eq(M, t.size(), "size vẫn là M");
-        long existing = used.iterator().next();
+        String existing = used.iterator().next();
         int before = t.get(existing);
         eq(UPDATED, t.put(existing, before + 100), "update existing key when full");
         eq(before + 100, t.get(existing), "updated value is visible");
@@ -73,12 +73,12 @@ public final class CoreCases {
 
     private static void fullAbsentTerminates(Impl impl) {
         HashIndex t = impl.f.create(P);
-        Set<Long> used = new HashSet<Long>();
+        Set<String> used = new HashSet<String>();
         for (int i = 0; i < M; i++) {
-            long k = uniqueKeyWithHome(i % M, used, new SplittableRandom(50L + i));
+            String k = uniqueKeyWithHome(i % M, used, new SplittableRandom(50L + i));
             check(t.put(k, i + 1) == INSERTED, "fill slot " + i);
         }
-        long absent = uniqueKeyWithHome(0, used, new SplittableRandom(123456L));
+        String absent = uniqueKeyWithHome(0, used, new SplittableRandom(123456L));
         eq(NOT_FOUND, t.get(absent), "get absent must return NOT_FOUND");
         check(!t.remove(absent), "remove absent must return false");
         eq(M, t.size(), "size still M");
@@ -87,9 +87,9 @@ public final class CoreCases {
     private static void wrapAround(Impl impl) {
         HashIndex t = impl.f.create(P);
         SplittableRandom r = new SplittableRandom(2026L);
-        long a = keyWithHome(M - 1, r);
-        long b = keyWithHome(M - 1, r);
-        long c = keyWithHome(M - 1, r);
+        String a = keyWithHome(M - 1, r);
+        String b = keyWithHome(M - 1, r);
+        String c = keyWithHome(M - 1, r);
 
         t.put(a, 1);
         t.put(b, 2);
@@ -101,27 +101,27 @@ public final class CoreCases {
 
     private static void churn(Impl impl, int targetSize) {
         HashIndex t = impl.f.create(P);
-        Set<Long> live = new HashSet<Long>();
+        Set<String> live = new HashSet<String>();
         SplittableRandom r = new SplittableRandom(1000L + targetSize);
         while (live.size() < targetSize) {
-            long k = keyWithHome(live.size() % M, r);
+            String k = keyWithHome(live.size() % M, r);
             if (live.add(k)) {
                 eq(INSERTED, t.put(k, TestUtil.valueOf(k)), "insert during churn");
             }
         }
         for (int i = 0; i < targetSize / 2; i++) {
-            Object[] arr = live.toArray(new Long[0]);
-            long victim = ((Long) arr[i]).longValue();
+            Object[] arr = live.toArray(new String[0]);
+            String victim = (String) arr[i];
             check(t.remove(victim), "remove victim");
             live.remove(victim);
-            long newKey = keyWithHome((i + targetSize) % M, r);
+            String newKey = keyWithHome((i + targetSize) % M, r);
             if (!live.contains(newKey)) {
                 eq(INSERTED, t.put(newKey, TestUtil.valueOf(newKey)), "add replacement");
                 live.add(newKey);
             }
         }
-        for (Long k : live) {
-            eq(TestUtil.valueOf(k.longValue()), t.get(k.longValue()), "value for live key");
+        for (String k : live) {
+            eq(TestUtil.valueOf(k), t.get(k), "value for live key");
         }
         eq(live.size(), t.size(), "size matches current live set");
     }
@@ -129,9 +129,9 @@ public final class CoreCases {
     private static void statsInvariants(Impl impl) {
         if (!(impl.f.create(P) instanceof hashbench.HashStats)) return;
         HashIndex t = impl.f.create(P);
-        long[] keys = new long[M];
+        String[] keys = new String[M];
         for (int i = 0; i < M; i++) {
-            keys[i] = i * 3L + 17L;
+            keys[i] = hashbench.KeyCodec.encode(i * 3L + 17L);
             t.put(keys[i], i + 1);
         }
         for (int i = 0; i < M / 2; i++) {
@@ -145,17 +145,17 @@ public final class CoreCases {
         }
     }
 
-    private static long keyWithHome(int home, SplittableRandom rng) {
+    private static String keyWithHome(int home, SplittableRandom rng) {
         return Hashing.findKeyWithHome(home, P, rng);
     }
 
-    private static long keyWithHome(int home) {
+    private static String keyWithHome(int home) {
         return Hashing.findKeyWithHome(home, P, new SplittableRandom(20261025L + home));
     }
 
-    private static long uniqueKeyWithHome(int home, Set<Long> used, SplittableRandom rng) {
+    private static String uniqueKeyWithHome(int home, Set<String> used, SplittableRandom rng) {
         while (true) {
-            long k = Hashing.findKeyWithHome(home, P, rng);
+            String k = Hashing.findKeyWithHome(home, P, rng);
             if (used.add(k)) return k;
         }
     }

@@ -7,7 +7,7 @@ import java.util.Map;
 /** Bản chuẩn đúng dùng cho self-check của harness. */
 public class ReferenceIndex implements HashIndex {
     private final int capacity;
-    private final Map<Long, Integer> map = new HashMap<Long, Integer>();
+    private final Map<String, Integer> map = new HashMap<String, Integer>();
 
     public ReferenceIndex(int capacity) {
         if (capacity <= 0) throw new IllegalArgumentException("capacity phải > 0");
@@ -15,9 +15,9 @@ public class ReferenceIndex implements HashIndex {
     }
 
     @Override
-    public int put(long key, int value) {
+    public int put(String key, int value) {
+        requireKey(key);
         if (value == NOT_FOUND) throw new IllegalArgumentException("value không được bằng NOT_FOUND");
-        if (key < 0) throw new IllegalArgumentException("key phải >= 0");
         if (map.containsKey(key)) {
             map.put(key, value);
             return UPDATED;
@@ -28,13 +28,15 @@ public class ReferenceIndex implements HashIndex {
     }
 
     @Override
-    public int get(long key) {
+    public int get(String key) {
+        requireKey(key);
         Integer v = map.get(key);
         return v == null ? NOT_FOUND : v.intValue();
     }
 
     @Override
-    public boolean remove(long key) {
+    public boolean remove(String key) {
+        requireKey(key);
         return map.remove(key) != null;
     }
 
@@ -46,5 +48,9 @@ public class ReferenceIndex implements HashIndex {
     @Override
     public int capacity() {
         return capacity;
+    }
+
+    private static void requireKey(String key) {
+        if (key == null) throw new IllegalArgumentException("key không được null");
     }
 }

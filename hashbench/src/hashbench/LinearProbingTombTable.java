@@ -2,30 +2,21 @@ package hashbench;
 
 import java.util.Arrays;
 
-/**
- * Bang bam dia chi mo, do tuyen tinh (linear probing), xoa bang tombstone (lp-tomb).
- * Phu trach: TV3.
- *
- * Moi o co 3 trang thai, ma hoa ngay trong mang keys (khoa luon >= 0):
- *   EMPTY = -1  o chua tung dung      -> get/put dung lai khi gap
- *   TOMB  = -2  o da xoa (bia mo)     -> get di qua, put co the tai su dung
- *   >= 0        o dang chua khoa song
- *
- * tau = nguong rebuild theo ti le TOMB: sau moi remove, neu tombs > tau * M thi rebuild.
- * tau = Double.POSITIVE_INFINITY nghia la khong bao gio rebuild (RQ2).
- */
+/** Bảng băm dò tuyến tính dùng trạng thái EMPTY, FULL và TOMB. */
 public class LinearProbingTombTable implements HashIndex, HashStats {
-    private static final long EMPTY = -1L;
-    private static final long TOMB = -2L;
+    private static final byte EMPTY = 0;
+    private static final byte STATE_FULL = 1;
+    private static final byte TOMB = 2;
 
     private final int p;
     private final int capacity;
     private final int mask;
-    private final long[] keys;
+    private final String[] keys;
     private final int[] vals;
+    private final byte[] state;
     private final double tau;
-    private int size;          // so khoa song
-    private int tombs;         // so o TOMB
+    private int size;
+    private int tombs;
     private long rebuildCount;
     private long rebuildNanos;
 
@@ -43,84 +34,90 @@ public class LinearProbingTombTable implements HashIndex, HashStats {
         this.p = p;
         this.capacity = 1 << p;
         this.mask = capacity - 1;
-        this.keys = new long[capacity];
+        this.keys = new String[capacity];
         this.vals = new int[capacity];
+        this.state = new byte[capacity];
         this.tau = tau;
-        Arrays.fill(keys, EMPTY);
     }
 
-    private int home(long key) {
+    private int home(String key) {
         return Hashing.hash(key, p);
     }
 
-    @Override
-    public int get(long key) {
-        if (key < 0) {
-            return NOT_FOUND;
+    private static void requireKey(String key) {
+        if (key == null) {
+            throw new IllegalArgumentException("key khong duoc null");
         }
+    }
+
+    @Override
+    public int get(String key) {
+        requireKey(key);
         int idx = home(key);
         int d = 0;
         int result = NOT_FOUND;
         for (; d < capacity; d++) {
-            long k = keys[idx];
-            if (k == EMPTY) break;                 // gap o chua tung dung: khoa khong co
-            if (k == key) { result = vals[idx]; break; }
-            idx = (idx + 1) & mask;                // TOMB hoac khoa khac: di tiep
+            if (state[idx] == EMPTY) {
+                break;
+            }
+            if (state[idx] == STATE_FULL && key.equals(keys[idx])) {
+                result = vals[idx];
+                break;
+            }
+            idx = (idx + 1) & mask;
         }
         Counters.addProbes(Math.min(d + 1, capacity));
         return result;
     }
 
-    /** Tra ve chi so o chua khoa song, hoac -1. Do toi da M o. */
-    private int find(long key) {
-        if (key < 0) {
-            return -1;
-        }
-        int idx = home(key);
+    /** Trả về ô chứa khóa, hoặc -1 nếu không tìm thấy. */
+    private int find(String key, int home) {
+        int idx = home;
         for (int d = 0; d < capacity; d++) {
-            long k = keys[idx];
-            if (k == EMPTY) return -1;
-            if (k == key) return idx;
+            if (state[idx] == EMPTY) {
+                return -1;
+            }
+            if (state[idx] == STATE_FULL && key.equals(keys[idx])) {
+                return idx;
+            }
             idx = (idx + 1) & mask;
         }
         return -1;
     }
 
     @Override
-    public int put(long key, int value) {
+    public int put(String key, int value) {
+        requireKey(key);
         if (value == NOT_FOUND) {
             throw new IllegalArgumentException("value khong duoc bang NOT_FOUND");
-        }
-        if (key < 0) {
-            throw new IllegalArgumentException("key phai >= 0");
         }
         int idx = home(key);
         int firstTomb = -1;
         for (int d = 0; d < capacity; d++) {
-            long k = keys[idx];
-            if (k == key) {                        // khoa da co: cap nhat tai cho
+            if (state[idx] == STATE_FULL && key.equals(keys[idx])) {
                 vals[idx] = value;
                 return UPDATED;
             }
-            if (k == EMPTY) {                      // chac chan khoa chua co
+            if (state[idx] == EMPTY) {
                 int target = firstTomb >= 0 ? firstTomb : idx;
                 if (firstTomb >= 0) {
                     tombs--;
                 }
                 keys[target] = key;
                 vals[target] = value;
+                state[target] = STATE_FULL;
                 size++;
                 return INSERTED;
             }
-            if (k == TOMB && firstTomb < 0) {
-                firstTomb = idx;                   // nho TOMB dau tien, nhung van phai do tiep
+            if (state[idx] == TOMB && firstTomb < 0) {
+                firstTomb = idx;
             }
             idx = (idx + 1) & mask;
         }
-        // Da xem du M o, khong gap EMPTY va khong thay khoa
         if (firstTomb >= 0) {
             keys[firstTomb] = key;
             vals[firstTomb] = value;
+            state[firstTomb] = STATE_FULL;
             tombs--;
             size++;
             return INSERTED;
@@ -129,44 +126,49 @@ public class LinearProbingTombTable implements HashIndex, HashStats {
     }
 
     @Override
-    public boolean remove(long key) {
-        int i = find(key);
-        if (i < 0) {
+    public boolean remove(String key) {
+        requireKey(key);
+        int idx = home(key);
+        int found = find(key, idx);
+        if (found < 0) {
             return false;
         }
-        keys[i] = TOMB;
-        vals[i] = 0;
+        keys[found] = null;
+        vals[found] = 0;
+        state[found] = TOMB;
         size--;
         tombs++;
-        if (tombs > tau * capacity) {
+        if ((double) tombs >= tau * capacity) {
             rebuild();
         }
         return true;
     }
 
-    /** Dung lai bang: chi giu khoa song, xoa het TOMB. Do thoi gian vao rebuildNanos. */
+    /** Xây dựng lại bảng, chỉ giữ khóa sống và xóa trạng thái TOMB. */
     private void rebuild() {
         long start = System.nanoTime();
-        int n = size;
-        long[] liveKeys = new long[n];
-        int[] liveVals = new int[n];
-        int c = 0;
+        int liveCount = size;
+        String[] liveKeys = new String[liveCount];
+        int[] liveVals = new int[liveCount];
+        int count = 0;
         for (int i = 0; i < capacity; i++) {
-            if (keys[i] >= 0) {
-                liveKeys[c] = keys[i];
-                liveVals[c] = vals[i];
-                c++;
+            if (state[i] == STATE_FULL) {
+                liveKeys[count] = keys[i];
+                liveVals[count] = vals[i];
+                count++;
             }
         }
-        Arrays.fill(keys, EMPTY);
+        Arrays.fill(keys, null);
         Arrays.fill(vals, 0);
-        for (int j = 0; j < n; j++) {
-            int idx = home(liveKeys[j]);
-            while (keys[idx] != EMPTY) {
+        Arrays.fill(state, EMPTY);
+        for (int i = 0; i < liveCount; i++) {
+            int idx = home(liveKeys[i]);
+            while (state[idx] == STATE_FULL) {
                 idx = (idx + 1) & mask;
             }
-            keys[idx] = liveKeys[j];
-            vals[idx] = liveVals[j];
+            keys[idx] = liveKeys[i];
+            vals[idx] = liveVals[i];
+            state[idx] = STATE_FULL;
         }
         tombs = 0;
         rebuildCount++;
@@ -175,51 +177,70 @@ public class LinearProbingTombTable implements HashIndex, HashStats {
 
     @Override public int size() { return size; }
     @Override public int capacity() { return capacity; }
-
-    // HashStats
     @Override public int tombCount() { return tombs; }
     @Override public int emptyCount() { return capacity - size - tombs; }
-    @Override public double dibMean() { return 0.0; }   // khong ap dung cho lp-tomb
-    @Override public int dibMax() { return 0; }          // khong ap dung cho lp-tomb
+    @Override public double dibMean() { return 0.0; }
+    @Override public int dibMax() { return 0; }
     @Override public long rebuildCount() { return rebuildCount; }
     @Override public long rebuildNanos() { return rebuildNanos; }
     @Override public long probeCount() { return Counters.probeCount; }
 
-    /** Kiem tra bat bien; nem IllegalStateException neu sai. Khong dung trong vung do. */
+    /** Kiểm tra bất biến của các trạng thái ô và chuỗi dò. */
     public void validate() {
         int live = 0;
         int tomb = 0;
         for (int i = 0; i < capacity; i++) {
-            long k = keys[i];
-            if (k == TOMB) { tomb++; continue; }
-            if (k == EMPTY) continue;
+            if (state[i] == TOMB) {
+                if (keys[i] != null) {
+                    throw new IllegalStateException("o TOMB khong duoc giu khoa");
+                }
+                tomb++;
+                continue;
+            }
+            if (state[i] == EMPTY) {
+                if (keys[i] != null) {
+                    throw new IllegalStateException("o EMPTY khong duoc giu khoa");
+                }
+                continue;
+            }
+            if (state[i] != STATE_FULL || keys[i] == null) {
+                throw new IllegalStateException("trang thai FULL khong hop le");
+            }
             live++;
-            // tu o nha den o i khong duoc co o EMPTY (neu co thi get se khong tim thay)
-            int j = home(k);
-            while (j != i) {
-                if (keys[j] == EMPTY) {
+            int idx = home(keys[i]);
+            while (idx != i) {
+                if (state[idx] == EMPTY) {
                     throw new IllegalStateException("co o EMPTY giua o nha va o " + i);
                 }
-                j = (j + 1) & mask;
+                idx = (idx + 1) & mask;
             }
-            if (find(k) != i) {
-                throw new IllegalStateException("khoa bi trung hoac khong tim lai duoc o o " + i);
+            if (find(keys[i], home(keys[i])) != i) {
+                throw new IllegalStateException(
+                        "khoa bi trung hoac khong tim lai duoc o o " + i);
             }
         }
-        if (live != size) throw new IllegalStateException("size khong khop: " + size + " vs " + live);
-        if (tomb != tombs) throw new IllegalStateException("tombs khong khop: " + tombs + " vs " + tomb);
+        if (live != size) {
+            throw new IllegalStateException("size khong khop: " + size + " vs " + live);
+        }
+        if (tomb != tombs) {
+            throw new IllegalStateException("tombs khong khop: " + tombs + " vs " + tomb);
+        }
     }
 
-    /** In trang thai bang de duyet tay, khong dung trong vung do. */
+    /** In trạng thái bảng để duyệt tay, không dùng trong vùng đo. */
     public String dump() {
-        StringBuilder sb = new StringBuilder();
+        StringBuilder result = new StringBuilder();
         for (int i = 0; i < capacity; i++) {
-            sb.append(i).append(": ");
-            if (keys[i] == EMPTY) sb.append("-");
-            else if (keys[i] == TOMB) sb.append("TOMB");
-            else sb.append("key=").append(keys[i]);
-            sb.append('\n');
+            result.append(i).append(": ");
+            if (state[i] == EMPTY) {
+                result.append("-");
+            } else if (state[i] == TOMB) {
+                result.append("TOMB");
+            } else {
+                result.append("key=").append(keys[i]);
+            }
+            result.append('\n');
         }
-        return sb.toString();
+        return result.toString();
     }
 }

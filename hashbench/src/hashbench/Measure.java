@@ -4,17 +4,53 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryPoolMXBean;
 import java.lang.management.MemoryType;
 import java.lang.management.MemoryUsage;
+import java.util.Map;
 import java.util.SplittableRandom;
 
 /** Tạo dữ liệu và đo các pha build, present, absent trong tiến trình con. */
 public final class Measure {
-    public static final String GENERATOR_VERSION = "1.0";
+    public static final String GENERATOR_VERSION = "2.0";
 
     private Measure() {
     }
 
-    /** Sinh dữ liệu đầu vào và checksum ngoài vùng đo thời gian. */
+    /** Sinh dữ liệu đầu vào và checksum ngoài vùng đo thời gian cho rq1a/rq1b. */
     public static Data buildData(long seed, int p, double alpha, int queries) {
+        return buildDataProfiled(seed, p, alpha, queries, null);
+    }
+
+    /** Sinh dữ liệu đầu vào theo dataset (hỗ trợ rq1clust, rq1a, rq1b). */
+    public static Data buildData(String dataset, long seed, int p, double alpha, int queries) {
+        if ("rq1clust".equals(dataset)) {
+            if (p < 1 || p > 30 || alpha <= 0.0 || alpha > 1.0 || queries < 0) {
+                throw new IllegalArgumentException("p, alpha hoặc queries không hợp lệ");
+            }
+            long roundedN = Math.round(alpha * (1L << p));
+            if (roundedN < 1L || roundedN > Integer.MAX_VALUE - 1L) {
+                throw new IllegalArgumentException("N không thể lưu trong mảng Java");
+            }
+            int n = (int) roundedN;
+            String[] present = Generator.generateClusteredKeys(seed, n, p);
+            long[] presentIds = new long[present.length];
+            for (int i = 0; i < present.length; i++) {
+                presentIds[i] = KeyCodec.decode(present[i]);
+            }
+            String[] absentQueries = Generator.generateAbsentKeys(seed, queries, presentIds);
+            String[] presentQueries = new String[queries];
+            SplittableRandom queryRandom = new SplittableRandom(seed ^ 0x5DEECE66DL);
+            for (int i = 0; i < presentQueries.length; i++) {
+                long queryId = presentIds[queryRandom.nextInt(presentIds.length)];
+                presentQueries[i] = KeyCodec.encode(queryId);
+            }
+            String inputSha256 = Generator.computeSHA256(present, absentQueries);
+            return new Data(present, presentQueries, absentQueries, inputSha256);
+        }
+        return buildDataProfiled(seed, p, alpha, queries, null);
+    }
+
+    /** Sinh dữ liệu và ghi lại thời gian nano/ms của từng bước chuẩn bị nếu có profiler. */
+    public static Data buildDataProfiled(long seed, int p, double alpha, int queries,
+            Map<String, Double> profiler) {
         if (p < 1 || p > 30 || alpha <= 0.0 || alpha > 1.0 || queries < 0) {
             throw new IllegalArgumentException("p, alpha hoặc queries không hợp lệ");
         }
@@ -23,19 +59,33 @@ public final class Measure {
             throw new IllegalArgumentException("N không thể lưu trong mảng Java");
         }
         int n = (int) roundedN;
-        long[] present = Generator.generatePresentKeys(seed, n);
-        LongSet presentSet = new LongSet(n);
-        for (int i = 0; i < present.length; i++) {
-            presentSet.add(present[i]);
-        }
-        long[] absentPool = Generator.generateAbsentKeys(seed, queries, presentSet);
-        long[] presentQueries = new long[queries];
+
+        long t0 = System.nanoTime();
+        long[] presentIds = Generator.generatePresentIds(seed, n);
+        long t1 = System.nanoTime();
+        String[] present = Generator.idsToKeys(presentIds);
+        long t2 = System.nanoTime();
+        String[] absentQueries = Generator.generateAbsentKeys(seed, queries, presentIds);
+        long t3 = System.nanoTime();
+        String[] presentQueries = new String[queries];
         SplittableRandom queryRandom = new SplittableRandom(seed ^ 0x5DEECE66DL);
         for (int i = 0; i < presentQueries.length; i++) {
-            presentQueries[i] = present[queryRandom.nextInt(present.length)];
+            long queryId = presentIds[queryRandom.nextInt(presentIds.length)];
+            presentQueries[i] = KeyCodec.encode(queryId);
         }
-        String inputSha256 = Generator.computeSHA256(present, absentPool);
-        return new Data(present, presentQueries, absentPool, inputSha256);
+        long t4 = System.nanoTime();
+        String inputSha256 = Generator.computeSHA256(present, absentQueries);
+        long t5 = System.nanoTime();
+
+        if (profiler != null) {
+            profiler.put("sinh ID có mặt", (t1 - t0) / 1e6);
+            profiler.put("idsToKeys", (t2 - t1) / 1e6);
+            profiler.put("sinh khóa vắng mặt", (t3 - t2) / 1e6);
+            profiler.put("sinh truy vấn có mặt", (t4 - t3) / 1e6);
+            profiler.put("computeSHA256", (t5 - t4) / 1e6);
+        }
+
+        return new Data(present, presentQueries, absentQueries, inputSha256);
     }
 
     /** Làm nóng ba lần trên dữ liệu nhỏ, không tạo phase log. */
@@ -92,6 +142,21 @@ public final class Measure {
                 data.inputSha256, GENERATOR_VERSION);
     }
 
+    /** Đo một thao tác với cùng quy trình GC, heap và nanoTime dùng cho workload mới. */
+    public static Measurement measure(Runnable operation) {
+        if (operation == null) {
+            throw new IllegalArgumentException("operation không được null");
+        }
+        System.gc();
+        resetHeapPeaks();
+        long heapBefore = heapBytes(false);
+        long start = System.nanoTime();
+        operation.run();
+        long elapsedNanos = System.nanoTime() - start;
+        long heapPeak = heapBytes(true);
+        return new Measurement(elapsedNanos, heapBefore, heapPeak);
+    }
+
     /** Trả về tổng dung lượng heap đang dùng hoặc đỉnh heap theo mẫu spec mục 6.4. */
     public static long heapBytes(boolean peak) {
         long sum = 0;
@@ -110,7 +175,7 @@ public final class Measure {
     }
 
     /** Tính tổng theo đề: giá trị tìm thấy cộng một cho mỗi khóa không tìm thấy. */
-    private static long runQueries(HashIndex index, long[] queries) {
+    public static long runQueries(HashIndex index, String[] queries) {
         long check = 0L;
         for (int i = 0; i < queries.length; i++) {
             int value = index.get(queries[i]);
@@ -123,14 +188,27 @@ public final class Measure {
         return check;
     }
 
+    /** Thời lượng và số đo heap của một Runnable đã đo. */
+    public static final class Measurement {
+        public final long elapsedNanos;
+        public final long heapBefore;
+        public final long heapPeak;
+
+        private Measurement(long elapsedNanos, long heapBefore, long heapPeak) {
+            this.elapsedNanos = elapsedNanos;
+            this.heapBefore = heapBefore;
+            this.heapPeak = heapPeak;
+        }
+    }
+
     /** Lưu các mảng đầu vào dùng chung cho những pha của một tiến trình. */
     public static final class Data {
-        public final long[] present;
-        public final long[] presentQueries;
-        public final long[] absentQueries;
+        public final String[] present;
+        public final String[] presentQueries;
+        public final String[] absentQueries;
         public final String inputSha256;
 
-        private Data(long[] present, long[] presentQueries, long[] absentQueries,
+        private Data(String[] present, String[] presentQueries, String[] absentQueries,
                 String inputSha256) {
             this.present = present;
             this.presentQueries = presentQueries;

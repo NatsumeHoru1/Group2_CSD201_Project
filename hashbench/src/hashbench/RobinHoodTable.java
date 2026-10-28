@@ -2,12 +2,10 @@ package hashbench;
 
 /** Bảng băm Robin Hood. earlyStop=false là biến thể rh-noearly. */
 public class RobinHoodTable implements HashIndex, HashStats {
-    private static final long EMPTY = -1L; // an toàn vì khóa luôn >= 0
-
     private final int p;
     private final int capacity;
     private final int mask;
-    private final long[] keys;
+    private final String[] keys;
     private final int[] vals;
     private final int[] dib;          // khoảng cách dò của khóa trong mỗi ô
     private final boolean earlyStop;
@@ -24,182 +22,196 @@ public class RobinHoodTable implements HashIndex, HashStats {
         this.p = p;
         this.capacity = 1 << p;
         this.mask = capacity - 1;
-        this.keys = new long[capacity];
+        this.keys = new String[capacity];
         this.vals = new int[capacity];
         this.dib = new int[capacity];
         this.earlyStop = earlyStop;
-        java.util.Arrays.fill(keys, EMPTY);
     }
 
     /** Ô nhà của khóa, dùng thư viện Hashing do TV2 cung cấp. */
-    private int home(long key) {
+    private int home(String key) {
         return Hashing.hash(key, p);
     }
 
-
-@Override
-public int get(long key) {
-    int idx = home(key);
-    int d = 0;
-    int result = NOT_FOUND;
-    for (; d < capacity; d++) {
-        if (keys[idx] == EMPTY) break;
-        if (keys[idx] == key) { result = vals[idx]; break; }
-        if (earlyStop && dib[idx] < d) break;
-        idx = (idx + 1) & mask;
-    }
-    Counters.addProbes(Math.min(d + 1, capacity));   // so o da xem
-    return result;
-}
-
-/** Trả về chỉ số ô chứa khóa, hoặc -1 nếu không có. Luôn dừng sớm (đúng với mọi bảng hợp lệ). */
-private int find(long key) {
-    int idx = home(key);
-    for (int d = 0; d < capacity; d++) {
-        if (keys[idx] == EMPTY || dib[idx] < d) return -1;
-        if (keys[idx] == key) return idx;
-        idx = (idx + 1) & mask;
-    }
-    return -1;
-}
-
-@Override
-public int put(long key, int value) {
-    if (value == NOT_FOUND) {
-        throw new IllegalArgumentException("value không được bằng NOT_FOUND");
-    }
-
-    if (size == capacity) {            // bảng đầy: chỉ được cập nhật, không được chèn
-        int at = find(key);
-        if (at >= 0) {
-            vals[at] = value;
-            return UPDATED;
+    @Override
+    public int get(String key) {
+        requireKey(key);
+        int idx = home(key);
+        int d = 0;
+        int result = NOT_FOUND;
+        for (; d < capacity; d++) {
+            if (keys[idx] == null) {
+                break;
+            }
+            if (key.equals(keys[idx])) {
+                result = vals[idx];
+                break;
+            }
+            if (earlyStop && dib[idx] < d) {
+                break;
+            }
+            idx = (idx + 1) & mask;
         }
-        return FULL;
+        Counters.addProbes(Math.min(d + 1, capacity));
+        return result;
     }
 
-    long curKey = key;
-    int curVal = value;
-    int curDib = 0;
-    int idx = home(key);
-    while (true) {
-        if (keys[idx] == EMPTY) {      // ô rỗng: đặt khóa đang cầm vào đây
-            keys[idx] = curKey;
-            vals[idx] = curVal;
-            dib[idx] = curDib;
-            size++;
-            return INSERTED;
+    /** Trả về chỉ số ô chứa khóa, hoặc -1 nếu không có. */
+    private int find(String key, int home) {
+        int idx = home;
+        for (int d = 0; d < capacity; d++) {
+            if (keys[idx] == null || dib[idx] < d) {
+                return -1;
+            }
+            if (key.equals(keys[idx])) {
+                return idx;
+            }
+            idx = (idx + 1) & mask;
         }
-        if (keys[idx] == curKey) {     // khóa gốc đã có: cập nhật
-            vals[idx] = curVal;
-            return UPDATED;
-        }
-        if (dib[idx] < curDib) {       // hoán đổi: khóa đang cầm vào ô, khóa cũ bị đẩy ra
-            long tk = keys[idx];
-            int tv = vals[idx];
-            int td = dib[idx];
-            keys[idx] = curKey;
-            vals[idx] = curVal;
-            dib[idx] = curDib;
-            curKey = tk;
-            curVal = tv;
-            curDib = td;
-        }
-        idx = (idx + 1) & mask;
-        curDib++;
+        return -1;
     }
-}
 
-@Override
-public boolean remove(long key) {
-    int i = find(key);
-    if (i < 0) return false;                       // khóa không có: dữ liệu không đổi
-    int next = (i + 1) & mask;
-    while (keys[next] != EMPTY && dib[next] > 0) { // 1: phần tử kế chưa nằm đúng nhà
-        keys[i] = keys[next];
-        vals[i] = vals[next];
-        dib[i] = dib[next] - 1;                    // 2: giảm dib đi 1
-        i = next;
-        next = (next + 1) & mask;
+    @Override
+    public int put(String key, int value) {
+        requireKey(key);
+        if (value == NOT_FOUND) {
+            throw new IllegalArgumentException("value không được bằng NOT_FOUND");
+        }
+        int home = home(key);
+
+        if (size == capacity) {
+            int at = find(key, home);
+            if (at >= 0) {
+                vals[at] = value;
+                return UPDATED;
+            }
+            return FULL;
+        }
+
+        String currentKey = key;
+        int currentValue = value;
+        int currentDib = 0;
+        int idx = home;
+        while (true) {
+            if (keys[idx] == null) {
+                keys[idx] = currentKey;
+                vals[idx] = currentValue;
+                dib[idx] = currentDib;
+                size++;
+                return INSERTED;
+            }
+            if (currentKey.equals(keys[idx])) {
+                vals[idx] = currentValue;
+                return UPDATED;
+            }
+            if (dib[idx] < currentDib) {
+                String displacedKey = keys[idx];
+                int displacedValue = vals[idx];
+                int displacedDib = dib[idx];
+                keys[idx] = currentKey;
+                vals[idx] = currentValue;
+                dib[idx] = currentDib;
+                currentKey = displacedKey;
+                currentValue = displacedValue;
+                currentDib = displacedDib;
+            }
+            idx = (idx + 1) & mask;
+            currentDib++;
+        }
     }
-    keys[i] = EMPTY;                               // 3: ô cuối cùng bị bỏ trống
-    vals[i] = 0;
-    dib[i] = 0;
-    size--;
-    return true;
-}
+
+    @Override
+    public boolean remove(String key) {
+        requireKey(key);
+        int i = find(key, home(key));
+        if (i < 0) {
+            return false;
+        }
+        int next = (i + 1) & mask;
+        while (keys[next] != null && dib[next] > 0) {
+            keys[i] = keys[next];
+            vals[i] = vals[next];
+            dib[i] = dib[next] - 1;
+            i = next;
+            next = (next + 1) & mask;
+        }
+        keys[i] = null;
+        vals[i] = 0;
+        dib[i] = 0;
+        size--;
+        return true;
+    }
+
+    private static void requireKey(String key) {
+        if (key == null) {
+            throw new IllegalArgumentException("key không được null");
+        }
+    }
 
     @Override public int size() { return size; }
     @Override public int capacity() { return capacity; }
 
-    // HashStats
-    @Override public int tombCount() { return 0; }          // Robin Hood không có tombstone
+    @Override public int tombCount() { return 0; }
     @Override public int emptyCount() { return capacity - size; }
-@Override
-public double dibMean() {
-    if (size == 0) return 0.0;
-    long sum = 0;
-    for (int i = 0; i < capacity; i++) {
-        if (keys[i] != EMPTY) sum += dib[i];
+    @Override public double dibMean() {
+        if (size == 0) return 0.0;
+        long sum = 0;
+        for (int i = 0; i < capacity; i++) {
+            if (keys[i] != null) sum += dib[i];
+        }
+        return (double) sum / size;
     }
-    return (double) sum / size;
-}
 
-@Override
-public int dibMax() {
-    int max = 0;
-    for (int i = 0; i < capacity; i++) {
-        if (keys[i] != EMPTY && dib[i] > max) max = dib[i];
+    @Override public int dibMax() {
+        int max = 0;
+        for (int i = 0; i < capacity; i++) {
+            if (keys[i] != null && dib[i] > max) max = dib[i];
+        }
+        return max;
     }
-    return max;
-}
     @Override public long rebuildCount() { return 0L; }
     @Override public long rebuildNanos() { return 0L; }
     @Override public long probeCount() { return Counters.probeCount; }
 
-/** Kiểm tra bất biến; ném IllegalStateException nếu sai. */
-public void validate() {
-    int count = 0;
-    for (int i = 0; i < capacity; i++) {
-        if (keys[i] == EMPTY) continue;
-        count++;
-        // 1: dib phải bằng khoảng cách thật từ ô nhà đến ô i
-        int expected = (i - home(keys[i])) & mask;
-        if (dib[i] != expected) {
-            throw new IllegalStateException("dib sai o o " + i);
-        }
-        // 2: bất biến Robin Hood với ô đứng trước
-        int prev = (i - 1) & mask;
-        if (keys[prev] == EMPTY) {
-            if (dib[i] != 0) {                       // sau ô rỗng thì dib phải bằng bao nhiêu?
-                throw new IllegalStateException("dib phai bang 0 sau o rong, o o " + i);
+    /** Kiểm tra bất biến; ném IllegalStateException nếu sai. */
+    public void validate() {
+        int count = 0;
+        for (int i = 0; i < capacity; i++) {
+            if (keys[i] == null) continue;
+            count++;
+            int expected = (i - home(keys[i])) & mask;
+            if (dib[i] != expected) {
+                throw new IllegalStateException("dib sai o o " + i);
             }
-        } else if (dib[i] > dib[prev] + 1) {                    // dib[i] không được vượt dib[prev] cộng mấy?
-            throw new IllegalStateException("vi pham bat bien Robin Hood o o " + i);
+            int prev = (i - 1) & mask;
+            if (keys[prev] == null) {
+                if (dib[i] != 0) {
+                    throw new IllegalStateException("dib phai bang 0 sau o rong, o o " + i);
+                }
+            } else if (dib[i] > dib[prev] + 1) {
+                throw new IllegalStateException("vi pham bat bien Robin Hood o o " + i);
+            }
+            if (find(keys[i], home(keys[i])) != i) {
+                throw new IllegalStateException("khong tim lai duoc khoa o o " + i);
+            }
         }
-        // 3: get phải tìm lại được chính ô này
-        if (find(keys[i]) != i) {
-            throw new IllegalStateException("khong tim lai duoc khoa o o " + i);
+        if (count != size) {
+            throw new IllegalStateException("size khong khop so o co khoa");
         }
     }
-    if (count != size) {
-        throw new IllegalStateException("size khong khop so o co khoa");
-    }
-}
 
-/** In trạng thái bảng để dượt, không dùng trong vùng đo. */
-public String dump() {
-    StringBuilder sb = new StringBuilder();
-    for (int i = 0; i < capacity; i++) {
-        sb.append(i).append(": ");
-        if (keys[i] == EMPTY) {
-            sb.append("-");
-        } else {
-            sb.append("key=").append(keys[i]).append(" dib=").append(dib[i]);
+    /** In trạng thái bảng để dượt, không dùng trong vùng đo. */
+    public String dump() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < capacity; i++) {
+            sb.append(i).append(": ");
+            if (keys[i] == null) {
+                sb.append("-");
+            } else {
+                sb.append("key=").append(keys[i]).append(" dib=").append(dib[i]);
+            }
+            sb.append('\n');
         }
-        sb.append('\n');
+        return sb.toString();
     }
-    return sb.toString();
-}
-
 }

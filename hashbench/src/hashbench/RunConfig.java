@@ -29,6 +29,7 @@ public final class RunConfig {
     public final int exitCode;
     public final String oomPhase;
     public final String phaseNames;
+    public final boolean profile;
 
     /** Tạo cấu hình test cũ với variant base và heap mặc định 2g. */
     public RunConfig(String rq, String algo, int p, double alpha, int c,
@@ -53,7 +54,7 @@ public final class RunConfig {
                      int timeoutSec, boolean countMode, String phaseNames) {
         this(rq, algo, variant, dataset, n, p, alpha, c, tau, load, queries, seed,
                 repeat, xmx, machineId, timeoutSec, countMode, null, 0L, null, 1, null,
-                phaseNames);
+                phaseNames, false);
     }
 
     /** Khởi tạo và xác thực cấu hình; các hook cuối chỉ phục vụ kiểm thử tiến trình. */
@@ -62,7 +63,7 @@ public final class RunConfig {
                       long seed, int repeat, String xmx, String machineId,
                       int timeoutSec, boolean countMode, String sleepPhase,
                       long sleepSeconds, String exitPhase, int exitCode, String oomPhase,
-                      String phaseNames) {
+                      String phaseNames, boolean profile) {
         if (rq == null || rq.length() == 0 || dataset == null || dataset.length() == 0) {
             throw new IllegalArgumentException("rq và dataset không được rỗng");
         }
@@ -76,7 +77,11 @@ public final class RunConfig {
         if ("noearly".equals(variant) && !"rh".equals(algo)) {
             throw new IllegalArgumentException("Variant noearly chỉ áp dụng cho rh");
         }
-        if (p < 0 || p > 30 || n < 0L || queries < 0L || repeat < 1) {
+        if (("rq2".equals(dataset) || "rq3".equals(dataset))
+                && (p < 1 || !isFinite(load) || load <= 0.0 || load > 1.0)) {
+            throw new IllegalArgumentException("rq2/rq3 yêu cầu p trong [1,30] và load trong (0,1]");
+        }
+        if (p < 0 || p > 30 || n < 0L || c < 0 || queries < 0L || repeat < 1) {
             throw new IllegalArgumentException("p, n, queries hoặc repeat không hợp lệ");
         }
         if (!isFinite(alpha) || !isFinite(load) || Double.isNaN(tau) || tau < 0.0) {
@@ -97,8 +102,10 @@ public final class RunConfig {
         this.algo = algo;
         this.variant = variant;
         this.dataset = dataset;
-        this.n = "rq1a".equals(dataset) || "rq1b".equals(dataset)
-                ? Math.round(alpha * (1L << p)) : n;
+        this.n = "rq1a".equals(dataset) || "rq1b".equals(dataset) || "rq1clust".equals(dataset)
+                ? Math.round(alpha * (1L << p))
+                : ("rq2".equals(dataset) || "rq3".equals(dataset)
+                        ? Math.round(load * (1L << p)) : n);
         this.p = p;
         this.alpha = alpha;
         this.c = c;
@@ -119,35 +126,41 @@ public final class RunConfig {
         this.oomPhase = oomPhase;
         this.phaseNames = phaseNames == null || phaseNames.length() == 0
                 ? null : phaseNames;
+        this.profile = profile;
     }
 
     /** Tạo bản sao bật cờ count cho tiến trình con. */
     public RunConfig withCountMode(boolean enabled) {
-        return copy(enabled, sleepPhase, sleepSeconds, exitPhase, exitCode, oomPhase);
+        return copy(enabled, sleepPhase, sleepSeconds, exitPhase, exitCode, oomPhase, profile);
+    }
+
+    /** Tạo bản sao bật cờ profile cho tiến trình con. */
+    public RunConfig withProfile(boolean profile) {
+        return copy(countMode, sleepPhase, sleepSeconds, exitPhase, exitCode, oomPhase, profile);
     }
 
     /** Tạo bản sao với hook sleep chỉ dùng để kiểm tra timeout. */
     public RunConfig withSleepPhase(String phase, long seconds) {
-        return copy(countMode, phase, seconds, exitPhase, exitCode, oomPhase);
+        return copy(countMode, phase, seconds, exitPhase, exitCode, oomPhase, profile);
     }
 
     /** Tạo bản sao với hook exit chỉ dùng để kiểm tra trạng thái crash. */
     public RunConfig withExitPhase(String phase, int code) {
-        return copy(countMode, sleepPhase, sleepSeconds, phase, code, oomPhase);
+        return copy(countMode, sleepPhase, sleepSeconds, phase, code, oomPhase, profile);
     }
 
     /** Tạo bản sao với hook OutOfMemoryError chỉ dùng để kiểm tra trạng thái oom. */
     public RunConfig withOomPhase(String phase) {
-        return copy(countMode, sleepPhase, sleepSeconds, exitPhase, exitCode, phase);
+        return copy(countMode, sleepPhase, sleepSeconds, exitPhase, exitCode, phase, profile);
     }
 
     /** Sao chép các trường cấu hình trong khi thay đổi duy nhất các tùy chọn test. */
     private RunConfig copy(boolean newCountMode, String newSleepPhase, long newSleepSeconds,
-            String newExitPhase, int newExitCode, String newOomPhase) {
+            String newExitPhase, int newExitCode, String newOomPhase, boolean newProfile) {
         return new RunConfig(rq, algo, variant, dataset, n, p, alpha, c, tau, load,
                 queries, seed, repeat, xmx, machineId, timeoutSec, newCountMode,
                 newSleepPhase, newSleepSeconds, newExitPhase, newExitCode, newOomPhase,
-                phaseNames);
+                phaseNames, newProfile);
     }
 
     /** Tính M = 2^p theo dung lượng bảng. */
@@ -173,7 +186,7 @@ public final class RunConfig {
     /** Trả về danh sách pha do cấu hình chỉ định hoặc mặc định theo dataset. */
     public static List<String> phasesForDataset(String dataset, String configuredPhases) {
         List<String> phases = new ArrayList<String>();
-        if ("rq1a".equals(dataset) || "rq1b".equals(dataset)) {
+        if ("rq1a".equals(dataset) || "rq1b".equals(dataset) || "rq1clust".equals(dataset)) {
             if (configuredPhases == null) {
                 phases.add("build");
                 phases.add("present");
@@ -187,6 +200,26 @@ public final class RunConfig {
             } else {
                 addConfiguredPhases(phases, configuredPhases, true);
             }
+        } else if ("rq2".equals(dataset)) {
+            if (configuredPhases == null) {
+                phases.add("build");
+                phases.add("workload");
+                phases.add("present");
+                phases.add("absent");
+                phases.add("ctl_present");
+                phases.add("ctl_absent");
+            } else {
+                addConfiguredPhases(phases, configuredPhases, true, true);
+            }
+        } else if ("rq3".equals(dataset)) {
+            if (configuredPhases == null) {
+                phases.add("build");
+                phases.add("workload");
+                phases.add("present");
+                phases.add("absent");
+            } else {
+                addConfiguredPhases(phases, configuredPhases, false, true);
+            }
         } else {
             throw new IllegalArgumentException("Dataset chưa hỗ trợ: " + dataset);
         }
@@ -196,10 +229,18 @@ public final class RunConfig {
     /** Tách và kiểm tra pha CLI để không nhận pha không triển khai. */
     private static void addConfiguredPhases(List<String> phases, String configuredPhases,
             boolean allowControl) {
+        addConfiguredPhases(phases, configuredPhases, allowControl, false);
+    }
+
+    private static void addConfiguredPhases(List<String> phases, String configuredPhases,
+            boolean allowControl, boolean allowWorkloadPhases) {
         String[] names = configuredPhases.split(",", -1);
         for (String name : names) {
             if (!"build".equals(name) && !"present".equals(name) && !"absent".equals(name)
-                    && !(allowControl && "control".equals(name))) {
+                    && !(allowControl && "control".equals(name))
+                    && !(allowWorkloadPhases && "workload".equals(name))
+                    && !(allowControl && ("ctl_present".equals(name)
+                            || "ctl_absent".equals(name)))) {
                 throw new IllegalArgumentException("Pha chưa hỗ trợ: " + name);
             }
             phases.add(name);
@@ -221,5 +262,33 @@ public final class RunConfig {
     /** Kiểm tra số double hữu hạn theo API có sẵn trong Java 8. */
     private static boolean isFinite(double value) {
         return !Double.isNaN(value) && !Double.isInfinite(value);
+    }
+
+    /** Sinh proc_id tất định, chỉ chứa [A-Za-z0-9_-]. */
+    public String procId() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(rq).append('_').append(algo).append('_').append(variant).append('_').append(dataset);
+        sb.append("_p").append(p);
+        sb.append("_a").append(formatDoubleNoDot(alpha));
+        sb.append("_t").append(formatDoubleNoDot(tau));
+        if ("rq2".equals(dataset) || "rq3".equals(dataset)) {
+            sb.append("_l").append(formatDoubleNoDot(load));
+            sb.append("_c").append(c);
+        }
+        sb.append("_s").append(seed);
+        sb.append("_r").append(repeat);
+        if (countMode) {
+            sb.append("-count");
+        }
+        return sb.toString();
+    }
+
+    /** Định dạng double không dấu chấm: 0.75 -> 0p75, inf -> inf. */
+    public static String formatDoubleNoDot(double v) {
+        if (Double.isInfinite(v)) {
+            return "inf";
+        }
+        String s = Double.toString(v);
+        return s.replace('.', 'p');
     }
 }

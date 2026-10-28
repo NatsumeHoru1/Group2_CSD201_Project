@@ -43,6 +43,27 @@ public final class PhaseLog {
     public void append(String phase, String status, String elapsedMs, String heapBefore,
             String heapPeak, String opsCount, String outputCheck, String inputSha256,
             String generatorVersion) throws IOException {
+        appendInternal(phase, status, elapsedMs, heapBefore, heapPeak, opsCount, outputCheck,
+                inputSha256, generatorVersion, null);
+    }
+
+    /** Ghi toàn bộ số liệu pha và tám thống kê mở rộng vào một dòng TSV. */
+    public void append(String phase, String status, String elapsedMs, String heapBefore,
+            String heapPeak, String opsCount, String outputCheck, String inputSha256,
+            String generatorVersion, String tombRatio, String emptyRatio,
+            String rebuildCount, String rebuildMs, String blockMedianMs,
+            String blockMaxMs, String dibMean, String dibMax) throws IOException {
+        appendInternal(phase, status, elapsedMs, heapBefore, heapPeak, opsCount,
+                outputCheck, inputSha256, generatorVersion, new String[] {
+                    tombRatio, emptyRatio, rebuildCount, rebuildMs, blockMedianMs,
+                    blockMaxMs, dibMean, dibMax
+                });
+    }
+
+    private void appendInternal(String phase, String status, String elapsedMs,
+            String heapBefore, String heapPeak, String opsCount, String outputCheck,
+            String inputSha256, String generatorVersion, String[] extendedFields)
+            throws IOException {
         if (phase == null || phase.length() == 0 || phase.indexOf('\t') >= 0
                 || phase.indexOf('\n') >= 0 || phase.indexOf('\r') >= 0) {
             throw new IllegalArgumentException("Tên pha không hợp lệ");
@@ -53,6 +74,13 @@ public final class PhaseLog {
         if (elapsedMs == null || heapBefore == null || heapPeak == null || opsCount == null
                 || outputCheck == null || inputSha256 == null || generatorVersion == null) {
             throw new IllegalArgumentException("Trường phase log không được null");
+        }
+        if (extendedFields != null) {
+            for (String value : extendedFields) {
+                if (value == null) {
+                    throw new IllegalArgumentException("Trường phase log không được null");
+                }
+            }
         }
         if (elapsedMs.length() > 0) {
             try {
@@ -85,6 +113,11 @@ public final class PhaseLog {
             writeField(writer, outputCheck);
             writeField(writer, inputSha256);
             writeField(writer, generatorVersion);
+            if (extendedFields != null) {
+                for (String value : extendedFields) {
+                    writeField(writer, value);
+                }
+            }
             writer.newLine();
             writer.flush();
         }
@@ -121,9 +154,17 @@ public final class PhaseLog {
                 continue;
             }
             String[] fields = line.split("\t", -1);
-            if (fields.length != 9 || fields[0].length() == 0
+            if ((fields.length != 9 && fields.length != 17) || fields[0].length() == 0
                     || !isAllowedStatus(fields[1])) {
                 throw new IOException("Dòng phase log không hợp lệ: " + line);
+            }
+            if (fields.length == 9) {
+                String[] extended = new String[17];
+                System.arraycopy(fields, 0, extended, 0, fields.length);
+                for (int i = 9; i < extended.length; i++) {
+                    extended[i] = "";
+                }
+                fields = extended;
             }
             try {
                 if (fields[2].length() > 0) {
@@ -165,6 +206,14 @@ public final class PhaseLog {
         public final String outputCheck;
         public final String inputSha256;
         public final String generatorVersion;
+        public final String tombRatio;
+        public final String emptyRatio;
+        public final String rebuildCount;
+        public final String rebuildMs;
+        public final String blockMedianMs;
+        public final String blockMaxMs;
+        public final String dibMean;
+        public final String dibMax;
 
         private Entry(String[] fields) {
             this.phase = fields[0];
@@ -176,6 +225,14 @@ public final class PhaseLog {
             this.outputCheck = fields[6];
             this.inputSha256 = fields[7];
             this.generatorVersion = fields[8];
+            this.tombRatio = fields[9];
+            this.emptyRatio = fields[10];
+            this.rebuildCount = fields[11];
+            this.rebuildMs = fields[12];
+            this.blockMedianMs = fields[13];
+            this.blockMaxMs = fields[14];
+            this.dibMean = fields[15];
+            this.dibMax = fields[16];
         }
     }
 }

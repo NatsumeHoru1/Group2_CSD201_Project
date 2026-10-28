@@ -66,10 +66,22 @@ public final class RunnerPhaseTest {
                 testCsvAppend(root);
             }
         });
+        failures += runCase("deterministic-proc-id", new TestCase() {
+            @Override
+            public void run(Path root) throws Exception {
+                testDeterministicProcId(root);
+            }
+        });
         failures += runCase("truncated-phase-log", new TestCase() {
             @Override
             public void run(Path root) throws Exception {
                 testTruncatedLog(root);
+            }
+        });
+        failures += runCase("validator-latest", new TestCase() {
+            @Override
+            public void run(Path root) throws Exception {
+                testValidatorLatestOption(root);
             }
         });
         if (failures != 0) {
@@ -206,9 +218,13 @@ public final class RunnerPhaseTest {
     /** Chạy hai tiến trình vào cùng CSV và xác nhận header chỉ xuất hiện một lần. */
     private static void testCsvAppend(Path root) throws Exception {
         Path csv = root.resolve("append.csv");
-        RunConfig config = config(10, false);
-        Runner.RunResult first = Runner.runWithCsv(config, csv, root);
-        Runner.RunResult second = Runner.runWithCsv(config, csv, root);
+        RunConfig config1 = config(10, false);
+        RunConfig config2 = new RunConfig(config1.rq, config1.algo, config1.variant,
+                config1.dataset, config1.n, config1.p, config1.alpha, config1.c,
+                config1.tau, config1.load, config1.queries, config1.seed, 2,
+                config1.xmx, config1.machineId, config1.timeoutSec, config1.countMode);
+        Runner.RunResult first = Runner.runWithCsv(config1, csv, root);
+        Runner.RunResult second = Runner.runWithCsv(config2, csv, root);
         List<String[]> rows = readCsv(csv);
         assertEquals(CsvSchema.COLUMNS.length, rows.get(0).length, "số cột header");
         assertEquals(1 + first.phases.size() + second.phases.size(), rows.size(),
@@ -216,22 +232,83 @@ public final class RunnerPhaseTest {
         assertAllRowsValid(rows);
     }
 
+    /** Kiểm tra proc_id tất định và không trùng lặp giữa các cấu hình khác nhau. */
+    private static void testDeterministicProcId(Path root) throws Exception {
+        RunConfig c1 = new RunConfig("RQ1", "rh", "base", "rq1a", 0L, 18, 0.75, 0,
+                Double.POSITIVE_INFINITY, 0.0, 1000000L, 1L, 1, "2g", "m1", 60, false);
+        assertEquals("RQ1_rh_base_rq1a_p18_a0p75_tinf_s1_r1", c1.procId(), "procId base");
+        assertTrue(c1.procId().matches("[A-Za-z0-9_-]+"), "procId regex");
+        assertEquals(c1.procId(), c1.procId(), "procId tất định");
+
+        RunConfig cCount = c1.withCountMode(true);
+        assertEquals("RQ1_rh_base_rq1a_p18_a0p75_tinf_s1_r1-count", cCount.procId(), "procId count");
+
+        RunConfig cTau = new RunConfig("RQ1", "lp-tomb", "base", "rq1a", 0L, 18, 0.75, 0,
+                0.2, 0.0, 1000000L, 1L, 1, "2g", "m1", 60, false);
+        assertEquals("RQ1_lp-tomb_base_rq1a_p18_a0p75_t0p2_s1_r1", cTau.procId(), "procId tau hữu hạn");
+
+        Set<String> seen = new HashSet<String>();
+        assertTrue(seen.add(c1.procId()), "c1 duy nhất");
+        assertTrue(seen.add(cCount.procId()), "cCount duy nhất");
+        assertTrue(seen.add(cTau.procId()), "cTau duy nhất");
+        assertTrue(seen.add(new RunConfig("RQ1", "rh", "base", "rq1a", 0L, 20, 0.75, 0,
+                Double.POSITIVE_INFINITY, 0.0, 1000000L, 1L, 1, "2g", "m1", 60, false).procId()), "p khác");
+        assertTrue(seen.add(new RunConfig("RQ1", "rh", "base", "rq1a", 0L, 18, 0.5, 0,
+                Double.POSITIVE_INFINITY, 0.0, 1000000L, 1L, 1, "2g", "m1", 60, false).procId()), "alpha khác");
+        assertTrue(seen.add(new RunConfig("RQ1", "rh", "base", "rq1a", 0L, 18, 0.75, 0,
+                Double.POSITIVE_INFINITY, 0.0, 1000000L, 2L, 1, "2g", "m1", 60, false).procId()), "seed khác");
+        assertTrue(seen.add(new RunConfig("RQ1", "rh", "base", "rq1a", 0L, 18, 0.75, 0,
+                Double.POSITIVE_INFINITY, 0.0, 1000000L, 1L, 2, "2g", "m1", 60, false).procId()), "repeat khác");
+        RunConfig rq2 = new RunConfig("RQ2", "lp-tomb", "base", "rq2", 0L,
+                20, 0.0, 262144, Double.POSITIVE_INFINITY, 0.5, 1000000L,
+                1L, 1, "2g", "m1", 60, false);
+        assertEquals(524288L, rq2.n, "n RQ2 từ load");
+        assertEquals("RQ2_lp-tomb_base_rq2_p20_a0p0_tinf_l0p5_c262144_s1_r1",
+                rq2.procId(), "procId RQ2 có load/c trước seed");
+        assertEquals(Arrays.asList("build", "workload", "present", "absent",
+                "ctl_present", "ctl_absent"), RunConfig.phasesForDataset("rq2"),
+                "thứ tự pha RQ2");
+        assertEquals(Arrays.asList("build", "workload", "present", "absent"),
+                RunConfig.phasesForDataset("rq3"), "thứ tự pha RQ3");
+    }
+
     /** Xác nhận parser bỏ qua dòng cuối phase log không có newline kết thúc. */
     private static void testTruncatedLog(Path root) throws Exception {
         PhaseLog log = new PhaseLog("truncated_test", root);
         log.append("build", "ok", "1.250", "10", "20", "3", "4",
                 "0123456789abcdef", "1.0");
+        log.append("workload", "ok", "3.000", "12", "22", "", "",
+                "fedcba9876543210", "1.0", "0.1", "0.2", "3", "4.5",
+                "5.5", "6.5", "7.5", "8");
         Files.write(log.path(),
                 "present\tok\t2.500\t11\t21\t4\t5\tfedcba9876543210\t1.0"
                         .getBytes(StandardCharsets.UTF_8),
                 java.nio.file.StandardOpenOption.APPEND);
         List<PhaseLog.Entry> entries = log.readCompleted();
-        assertEquals(1, entries.size(), "số dòng log hoàn chỉnh");
+        assertEquals(2, entries.size(), "số dòng log hoàn chỉnh");
         assertEquals("build", entries.get(0).phase, "pha hoàn chỉnh");
         assertEquals("10", entries.get(0).heapBefore, "heap_before trong TSV");
         assertEquals("3", entries.get(0).opsCount, "ops_count trong TSV");
         assertEquals("4", entries.get(0).outputCheck, "output_check trong TSV");
         assertEquals("0123456789abcdef", entries.get(0).inputSha256, "hash trong TSV");
+        assertEquals("", entries.get(0).tombRatio, "log cũ thiếu thống kê mở rộng");
+        assertEquals("0.1", entries.get(1).tombRatio, "tomb_ratio trong TSV mở rộng");
+        assertEquals("8", entries.get(1).dibMax, "dib_max trong TSV mở rộng");
+    }
+
+    /** Kiểm tra validator: CSV có 2 dòng trùng run_id => mặc định FAIL, với latest=true => PASS. */
+    private static void testValidatorLatestOption(Path root) throws Exception {
+        Path csv = root.resolve("dup.csv");
+        RunConfig config = new RunConfig("RQ1", "rh", "base", "rq1a", 0L, 10, 0.75,
+                0, Double.POSITIVE_INFINITY, 0.0, 20000L, 1L, 1, "2g", "test-machine", 10, false);
+        Runner.runWithCsv(config, csv, root);
+        Runner.runWithCsv(config, csv, root);
+
+        CsvValidator.Report defaultReport = CsvValidator.validate(csv, false, false);
+        assertTrue(!defaultReport.isValid(), "Mặc định phải FAIL khi có run_id trùng");
+
+        CsvValidator.Report latestReport = CsvValidator.validate(csv, false, true);
+        assertTrue(latestReport.isValid(), "Với latest=true phải PASS khi có run_id trùng: " + latestReport.issues);
     }
 
     /** Chạy runner vào CSV riêng của test và xác nhận kết quả tiến trình. */
@@ -314,7 +391,8 @@ public final class RunnerPhaseTest {
             assertEquals(config.variant, columns[CsvSchema.VARIANT_INDEX], "variant");
             assertEquals(config.dataset, columns[CsvSchema.DATASET_INDEX], "dataset");
             assertEquals(Long.toString(config.n), columns[CsvSchema.N_INDEX], "n");
-            assertEquals(config.params, columns[CsvSchema.PARAMS_INDEX], "params");
+            assertEquals(config.params + ";keytype=str12",
+                    columns[CsvSchema.PARAMS_INDEX], "params");
             assertEquals(Long.toString(config.seed), columns[CsvSchema.SEED_INDEX], "seed");
             assertEquals(Integer.toString(config.repeat), columns[CsvSchema.REPEAT_INDEX],
                     "repeat");

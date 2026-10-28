@@ -1,99 +1,148 @@
-# Hashbench
+# Hashbench - hướng dẫn benchmark
 
-Java 8 CLI benchmark scaffold. `build.bat` compiles every `.java` file under
-`hashbench/src` and creates `hashbench/out/hashbench.jar`.
+Hashbench là bộ đo Java 8 cho RQ1, RQ2 và RQ3. Mã nguồn Java nằm trong
+`hashbench/src`; `build.bat` tạo `hashbench/out/hashbench.jar`. Có thể dùng
+NetBeans 17 với JDK 1.8 hoặc Ant (`ant clean jar`).
 
-## CSV output
+## Thuật toán và phạm vi đo
 
-The CSV has 32 columns in this order. The first 20 are the required columns
-from `spec_notes.txt` section A:
+Năm thuật toán/biến thể triển khai được dùng trong sáu cấu hình phân tích:
 
-`run_id`, `rq`, `algorithm`, `variant`, `dataset`, `n`, `params`, `seed`,
-`input_sha256`, `generator_version`, `repeat`, `elapsed_ms`,
-`heap_before_bytes`, `heap_peak_bytes`, `ops_count`, `output_check`, `status`,
-`xmx`, `machine_id`, `git_commit`.
+- `sc/base`: Separate Chaining.
+- `lp-tomb/base`, `tau=inf`: Linear Probing với tombstone, không rebuild.
+- `lp-tomb/base`, `tau` hữu hạn: Linear Probing với tombstone và rebuild.
+- `lp-backshift/base`: Linear Probing với dịch lùi theo Knuth Algorithm R.
+- `rh/base`: Robin Hood với early-stop.
+- `rh/noearly`: Robin Hood không early-stop; CSV lưu `algorithm=rh`,
+  `variant=noearly`.
 
-The 12 project-specific columns from section E5 follow:
+Các pha đã chạy chính thức:
 
-`proc_id`, `phase`, `wall_ms`, `phase_note`, `tomb_ratio`, `empty_ratio`,
-`rebuild_count`, `rebuild_ms`, `block_median_ms`, `block_max_ms`, `dib_mean`,
-`dib_max`.
+- RQ1: `build`, `present`, `absent`.
+- RQ2: `build`, `workload`, `present`, `absent`, `ctl_present`, `ctl_absent`.
+- RQ3: `build`, `workload`, `present`, `absent`.
 
-The phase rows currently populate the fields available for RQ1. Fields that
-cannot yet be measured or identified, including `git_commit` and the RQ2/RQ3
-statistics, remain empty rather than being estimated.
+Dữ liệu đã niêm phong nằm trong `results/raw/official/`: 200 tiến trình RQ1 và
+360 tiến trình RQ2/RQ3. Các tiến trình timeout và vi phạm variance được giữ
+nguyên, không sửa CSV gốc để ép validator PASS.
 
-## Run RQ1
+## Build và test
 
-Build first:
+Ở thư mục gốc dự án, chọn một trong các cách build:
 
-```bat
-build.bat
+```powershell
+.\build.bat
 ```
 
-Example timed run for one RQ1 configuration:
-
-```bat
-java -Xmx2g -jar hashbench/out/hashbench.jar --bench --rq RQ1 --algo rh --variant base --dataset rq1a --p 10 --alpha 0.75 --seed 1 --queries 20000 --repeat 1 --xmx 2g --timeout-sec 60 --machine-id dev --out results/raw/dev/bench.csv
+```powershell
+ant clean jar
 ```
 
-Counter run is a separate child JVM and records probe totals in `ops_count`:
+Chạy toàn bộ test:
 
-```bat
-java -Xmx2g -jar hashbench/out/hashbench.jar --bench --rq RQ1 --algo rh --variant base --dataset rq1a --p 10 --alpha 0.75 --seed 1 --queries 20000 --repeat 1 --xmx 2g --timeout-sec 60 --machine-id dev --out results/raw/dev/bench.csv --count
+```powershell
+java -Xmx2g -cp hashbench\out hashbench.test.AllTests
 ```
 
-Only `rh/base`, `rh/noearly` and `lp-backshift/base` are currently available through
-`HashIndexFactory`. `lp-backshift` is linear probing with Knuth Algorithm R
-backward-shift deletion; its `params` column records `backshift=knuth-r`.
-RQ1 datasets run the `build`, `present`, and `absent` phases. `n` is computed as
-`round(alpha * 2^p)`. The output file is appended; its header is written only when
-the file is new or empty.
+Smoke test runtime/JAR:
 
-`--run`, `--count`, `--selftest`, and `--phase-child` remain available for the
-stub runner. `--bench` is the real RQ1 measurement path.
-
-## Tests
-
-After building, run:
-
-```bat
-java -cp hashbench/out hashbench.RunnerPhaseTest
-java -cp hashbench/out hashbench.TV2SelfTest
-java -cp hashbench/out hashbench.MeasureChildTest
-java -cp hashbench/out hashbench.LpBackshiftSelfTest
-java -cp hashbench/out hashbench.RobinHoodSelfTest
+```powershell
+java -Xmx2g -jar hashbench\out\hashbench.jar --selftest
 ```
 
-`RunnerPhaseTest` verifies stub process handling, timeout/crash/OOM statuses,
-CSV schema and append behavior. `TV2SelfTest` checks the TV2 hashing, set, and
-generator modules. `MeasureChildTest` checks RQ1 measurements, deterministic
-input/output checks, the `HashMap` oracle, both Robin Hood variants, probe
-counters, and timeout harvesting. `LpBackshiftSelfTest` checks the TV6
-`lp-backshift` implementation (10^6-op oracle over 6 configurations, the 6
-mandatory cases plus a wrapped-cluster removal case, backshift semantics, probe
-counting) and the CSV validator. Tests use temporary directories and remove
-their own files.
+## Các chế độ và cờ CLI
 
-## Validate CSV output (TV6)
+| Cờ/chế độ | Tác dụng |
+|---|---|
+| `--run` | Chạy runner stub để kiểm tra cách ly tiến trình; hỗ trợ `--timeout-sec N` và `--machine-id ID`. Đây không phải phép đo RQ chính thức. |
+| `--count` | Chế độ stub có bật bộ đếm; với benchmark thật, thêm `--count` vào lệnh `--bench`. Với batch, cờ đếm được đặt trên từng dòng cấu hình bằng `count=1`; `--batch` không có cờ `--count` riêng. |
+| `--official` | Tùy chọn của `--batch`; bật các điều kiện bảo vệ cho lần chạy chính thức, trong đó `hashbench/` và `bench/` phải sạch. |
+| `--rerun <run_id> --csv <file>` | Đọc cấu hình và dòng đích trong CSV, chạy lại tiến trình, rồi so status, output_check và thời gian với median cấu hình tham chiếu. Tạo CSV tạm dưới `results/raw/dev/`. |
+| `--selftest` | In phiên bản Java và kiểm tra put/get/remove cơ bản trên `StubHashIndex`. Không thay thế toàn bộ test. |
+| `--limit N` | Tùy chọn của `--batch`; dừng sau khi xử lý N cấu hình batch (các cấu hình đã resume/skip cũng được tính là đã xử lý). Dùng cho pilot, không dùng để tuyên bố đã chạy đủ ma trận. |
 
-Run the schema and invariant validator over any results file:
+Lệnh batch đầy đủ có dạng:
 
-```bat
-java -cp hashbench/out hashbench.CsvValidator results/raw/dev/bench.csv
+```powershell
+java -Xmx2g -jar hashbench\out\hashbench.jar --batch bench\batch_rq1.txt --out results\raw\official\rq1_results.csv --log results\raw\batch_log.txt --machine-id <id> --xmx 2g --timeout-sec 60 --official
 ```
 
-Exit code 0 means PASS, 1 means violations were found, 2 means missing
-arguments. The validator never modifies the CSV it reads. It checks the 32-column
-schema, allowed status/algorithm/variant/dataset/phase values, the
-`elapsed_ms` rule for non-`ok` runs, `phase_note = not_started`, unique
-`run_id = proc_id + "_" + phase`, the `backshift` parameter for `lp-backshift`,
-`input_sha256` format, matching `output_check` across algorithms on the same
-(dataset, seed, phase), presence of all three RQ1 phases, and repeat-to-repeat
-variance within 0.5-2x the median.
+Sinh ma trận RQ1/RQ2-RQ3 và chạy batch:
 
-## Run lp-backshift
-
-```bat
-java -Xmx2g -jar hashbench/out/hashbench.jar --bench --rq RQ1 --algo lp-backshift --variant base --dataset rq1a --p 18 --alpha 0.75 --seed 1 --queries 1000000 --repeat 1 --xmx 2g --timeout-sec 60 --machine-id dev --out results/raw/dev/bench.csv
+```powershell
+java -jar hashbench\out\hashbench.jar --batch-gen-rq1 --out bench\batch_rq1.txt
+java -jar hashbench\out\hashbench.jar --batch-gen-rq23 --out bench\batch_rq23.txt
 ```
+
+```powershell
+java -Xmx2g -jar hashbench\out\hashbench.jar --batch bench\batch_rq23.txt --out results\raw\official\rq23_results.csv --log results\raw\batch_log.txt --machine-id <id> --xmx 2g --timeout-sec 60 --official
+```
+
+## Rerun mẫu từ dữ liệu chính thức
+
+Chạy ở thư mục gốc repo; mỗi lệnh dưới đây nhắm một pha của một RQ. Timeout
+mặc định là 60 giây cho mỗi pha tiến trình con.
+
+```powershell
+java -Xmx2g -jar hashbench\out\hashbench.jar --rerun RQ1_sc_base_rq1a_p20_a0p5_tinf_s1_r1_present --csv results\raw\official\rq1_results.csv
+```
+
+```powershell
+java -Xmx2g -jar hashbench\out\hashbench.jar --rerun RQ2_lp-tomb_base_rq2_p20_a0p0_tinf_l0p5_c0_s1_r1_present --csv results\raw\official\rq23_results.csv
+```
+
+```powershell
+java -Xmx2g -jar hashbench\out\hashbench.jar --rerun RQ3_lp-tomb_base_rq3_p20_a0p0_t0p2_l0p5_c1048576_s1_r1_present --csv results\raw\official\rq23_results.csv
+```
+
+`--rerun` không thay đổi CSV nguồn. Nó tạo một file rerun dưới `results/raw/dev/`;
+hãy giữ hoặc dọn file đó theo quy trình lưu bằng chứng của nhóm.
+
+## Probe, tau và các cột thống kê
+
+Chỉ lượt `--count` ghi tổng probe vào `ops_count`. SC đếm node đã duyệt; các
+thuật toán dò mở đếm ô đã xem theo implementation. Do đơn vị probe không giống
+nhau giữa chaining và open addressing, không diễn giải các số này như cùng một
+đại lượng vật lý mà không ghi chú quy ước. Số probe trung bình mỗi truy vấn là
+`ops_count / queries`.
+
+Với `lp-tomb`, rebuild kích hoạt khi `tomb_count >= tau * M` (`M` là capacity).
+`tau=inf` tắt rebuild; tau hữu hạn điều khiển ngưỡng rebuild và được ghi trong
+cột `params`. Các thuật toán khác bỏ qua tau.
+
+Tám cột thống kê mở rộng:
+
+| Cột | Ý nghĩa |
+|---|---|
+| `tomb_ratio` | Tỷ lệ tombstone trên capacity. |
+| `empty_ratio` | Tỷ lệ ô rỗng trên capacity. |
+| `rebuild_count` | Số lần rebuild. |
+| `rebuild_ms` | Tổng thời gian rebuild, ms. |
+| `block_median_ms` | Median thời gian khối workload, ms. |
+| `block_max_ms` | Thời gian khối lớn nhất, ms. |
+| `dib_mean` | DIB trung bình, nếu thuật toán hỗ trợ. |
+| `dib_max` | DIB lớn nhất, nếu thuật toán hỗ trợ. |
+
+`machine_id` để trống trong hai CSV chính thức hiện tại. Cấu hình đo được mô tả
+trong `results/raw/machine.md`: Intel Core i7-10850H, 31,8 GB RAM, Windows 11
+Pro, Temurin Java 8u504. File này là metadata cấp bộ dữ liệu, không phải giá trị
+được join bằng `machine_id` ở từng dòng.
+
+## Tóm tắt và validator
+
+Tạo `summary.csv` và sáu bộ biểu đồ PNG/PDF:
+
+```powershell
+python bench\analyze.py
+```
+
+Validator đọc CSV, không sửa nội dung:
+
+```powershell
+java -cp hashbench\out hashbench.CsvValidator --latest results\raw\official\rq1_results.csv results\raw\official\rq23_results.csv
+```
+
+Ở bộ dữ liệu hiện tại, RQ1 PASS; RQ2/RQ3 có một vi phạm variance đã được ghi
+trong `results/raw/rerun_log.md` và README gốc. Đây là ngoại lệ thời gian của
+một pha `ctl_present`; không xóa dòng hay làm thay đổi CSV chính thức để che
+vi phạm.
