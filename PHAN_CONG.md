@@ -22,15 +22,13 @@ mã nguồn, test và dữ liệu, không suy đoán tên cá nhân chưa đư�
 - Cập nhật hướng dẫn build, chạy, dữ liệu, phân tích, ngoại lệ validator và
   phân công trong README, `bench/` và `data/`.
 
-## TV2: Generator, định dạng khóa và seed
+## TV2: Generator, định dạng khóa, Separate Chaining và phân tích Biến thể B
 
-- Dùng `SplittableRandom` để sinh dữ liệu tất định; seed chính thức là 1, 2, 3.
-- Mã hóa ID thành chuỗi 12 ký tự cơ số 36 `[0-9A-Z]`; dùng `LongSet` primitive
-  để loại trùng và tạo tập truy vấn không giao với khóa hiện diện.
-- Cài đặt checksum SHA-256 theo thứ tự byte của các khóa đã mã hóa và bộ dữ liệu
-  clustered cho RQ1.
-- Hoàn thiện kiểm tra môi trường và các kiểm thử generator/hash liên quan.
-
+- **24/10:** Thiết kế và cài đặt module `Hashing` (băm Fibonacci 64-bit với hằng số tỉ lệ vàng `0x9E3779B97F4A7C15L`), cấu trúc `LongSet` primitive (loại trừ boxing overhead), và `Generator` sinh khóa ngẫu nhiên tất định dùng `SplittableRandom`.
+- **25/10:** Sửa hàm sinh khóa cụm `generateClusteredKeys` đúng đặc tả (ít nhất 10% home < M/64, 90% phân bố đều); tối ưu hóa `computeSHA256` sang bảng tra cứu hex tĩnh `bytesToHex` O(1); xây dựng script `verify_env.bat` kiểm định môi trường Java 8 / bytecode 52 / GC / selftest; chốt danh sách 3 seed chính thức (1, 2, 3) vào `bench/seeds.txt`.
+- **26/10:** Hỗ trợ port mã nguồn sang Biến thể B (khóa `String` 12 ký tự `[0-9A-Z]` qua `KeyCodec`), kiểm tra và hoàn thiện `SeparateChainingTable` cùng bộ kiểm thử `SeparateChainingSelfTest`, tích hợp factory `sc/base`.
+- **27/10:** Kiểm thử và nghiệm thu độc lập `SeparateChainingTable` trên nhánh `variant-b`, thực hiện đo pilot kiểm chứng số bước dò thực nghiệm khớp tuyệt đối với lý thuyết Knuth (S_N ≈ 1 + α/2, U_N ≈ α), xác thực tính toàn vẹn dữ liệu CSV qua `CsvValidator`.
+- **28/10:** Hoàn thành soạn thảo cơ sở lý thuyết (Background: SC vs LP, Primary Clustering, Cache locality vs Pointer chasing), phương pháp thực hiện (Methods: SC và Generator), và chuyên đề phân tích bắt buộc Biến thể B (`String.hashCode`, `equals`, và cơ chế Hash Cache trong JDK 8); trích xuất số liệu đối chứng RQ1 chính thức từ tập dữ liệu niêm phong `measure-v1`.
 ## TV3: Linear Probing với Tombstone
 
 - Cài đặt `lp-tomb` với trạng thái EMPTY/TOMB, tái sử dụng tombstone trong
