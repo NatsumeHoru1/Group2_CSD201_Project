@@ -1,4 +1,4 @@
-CONVENTIONS.md (nháp)
+# Quy ước benchmark
 
 1. CSV
 - 20 cột bắt buộc theo Bảng 4, rồi cột riêng:
@@ -14,13 +14,19 @@ CONVENTIONS.md (nháp)
 - sc, lp-tomb, lp-backshift, rh: variant = base.
 - rh-noearly: algorithm = rh, variant = noearly.
 - Tham số tau, p, alpha, load, C, queries nằm trong params (key=value;...).
+- lp-tomb rebuild khi tomb_count >= tau * M; tau = inf tắt rebuild.
 - lp-backshift phải ghi rõ cơ chế xóa trong params: backshift=knuth-r (Algorithm R của
   Knuth) hoặc backshift=sedgewick-wayne (chèn lại cụm). Nhóm chốt dùng Algorithm R.
 - Cột params của lp-backshift do CsvParams.augment() nối thêm, không sửa các cặp có sẵn.
 
-3. Tên pha
-- Đã triển khai và chạy được trong code hiện tại: build, present, absent.
-- Thuộc kế hoạch RQ2/RQ3, chưa triển khai trong code: workload, ctl_present, ctl_absent.
+3. Tên pha và trạng thái triển khai
+- Đã hoàn tất và đã chạy trong bộ dữ liệu chính thức:
+  - RQ1: build, present, absent.
+  - RQ2: build, workload, present, absent, ctl_present, ctl_absent.
+  - RQ3: build, workload, present, absent.
+- Dữ liệu chính thức được niêm phong tại results/raw/official/.
+- Hiện có 200 tiến trình RQ1 và 360 tiến trình RQ2/RQ3. Timeout là kết quả
+  được giữ trong dữ liệu, không phải lý do để xóa hoặc sửa dòng CSV.
 
 4. dataset: rq1a, rq1b, rq1clust, rq2, rq3, test
    n = số khóa N.
@@ -33,9 +39,12 @@ CONVENTIONS.md (nháp)
 - LongSet dùng -1L làm ô rỗng.
 - Lượt --count ghi ops_count; số truy vấn nằm trong params (queries=...).
 - RQ3: mốc C thuộc {M, 2M, 4M}.
-- Seed: 3 seed cố định, commit vào repo (xem seeds.txt; khai báo tại Generator.FIXED_SEEDS).
+- Seed chính thức: 1, 2, 3 (xem seeds.txt; khai báo tại Generator.FIXED_SEEDS).
+  Chúng được lưu trong CSV là 1/2/3; không phải 101/102/103.
 - RQ2/RQ3 input_sha256 = Generator.computeSHA256(workload.pool(), workload.absentQueries()),
-  tức SHA-256 của pool nối tiếp mảng truy vấn vắng mặt theo thứ tự.
+  tức SHA-256 của pool nối tiếp mảng truy vấn vắng mặt theo thứ tự. Khóa 12 ký tự
+  được băm dưới dạng byte ASCII/UTF-8 theo thứ tự chuỗi; không băm biểu diễn số
+  nguyên nhị phân.
 
 6. Validator CSV (TV6)
 - Chạy: java -cp hashbench\out hashbench.CsvValidator [--latest] <file.csv> [file2.csv ...]
@@ -66,4 +75,13 @@ CONVENTIONS.md (nháp)
 - Lệnh Batch và Rerun:
   + Sinh ma trận: java -jar hashbench.jar --batch-gen-rq1 --out bench\batch_rq1.txt
   + Chạy batch: java -jar hashbench.jar --batch bench\batch_rq1.txt --out <csv> [--log <file>] [--limit N] [--official]
-  + Chạy lại kiểm tra (< 60s): java -jar hashbench.jar --rerun <run_id> --csv <file> (so khớp theo tiêu chuẩn mục 10.1: status và output_check giống nhau, thời gian trong 0.5-2.0x median).
+  + Chạy lại kiểm tra: java -jar hashbench.jar --rerun <run_id> --csv <file>
+    (so khớp status và output_check; thời gian phải trong 0.5-2.0x median).
+
+8. Kết quả kiểm định hiện tại
+- Dữ liệu chính thức đã chạy đủ ma trận: 200 tiến trình RQ1 và 360 tiến trình
+  RQ2/RQ3; được lưu tại results/raw/official/.
+- Validator PASS cho RQ1. RQ2/RQ3 hiện có một ngoại lệ variance:
+  ctl_present của RQ2_lp-tomb_base_rq2_p20_a0p0_tinf_l0p5_c0_s1_r1 có
+  elapsed_ms=314.931, bằng 2.065 lần median 152.481. Giữ nguyên dòng dữ liệu
+  thô và ghi chú ngoại lệ trong results/raw/rerun_log.md.
