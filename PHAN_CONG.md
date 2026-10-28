@@ -1,10 +1,8 @@
 # Phân công và kết quả thực hiện
 
-Tên thành viên được ghi theo mã TV trong tài liệu đồng bộ nhóm; chỉ TV1 có tên
-đầy đủ trong hồ sơ repo hiện có. Các mục dưới đây mô tả kết quả kỹ thuật trong
-mã nguồn, test và dữ liệu, không suy đoán tên cá nhân chưa được cung cấp.
+Danh sách thành viên, MSSV và phần việc kỹ thuật được cập nhật chính thức theo tài liệu đề tài và phân công nhóm.
 
-## TV1 - Huỳnh Anh Tuấn: Runner, workload, batch và phân tích
+## TV1 - Huỳnh Anh Tuấn (MSSV: QE200073): Runner, workload, batch và phân tích
 
 - Hoàn thiện Runner chạy tiến trình con cô lập, timeout, thu hoạch kết quả theo
   pha, ghi CSV và hỗ trợ tiếp tục batch.
@@ -38,7 +36,7 @@ mã nguồn, test và dữ liệu, không suy đoán tên cá nhân chưa đư�
 - Kiểm thử các trường hợp xóa, dò xuyên tombstone, tải đầy, rebuild và
   bộ đếm probe.
 
-## TV4: Workload, đối chứng và kiểm thử RQ2/RQ3
+## TV4 - Nguyễn Trần Anh Kiệt (MSSV: QE200105): Workload, đối chứng và kiểm thử RQ2/RQ3
 
 - Xây dựng workload chu kỳ xóa-thêm, sinh truy vấn present/absent và xác minh
   bảng sau workload với oracle.
@@ -49,14 +47,14 @@ mã nguồn, test và dữ liệu, không suy đoán tên cá nhân chưa đư�
   `bench/TV4_PAPER_DRAFT.md`; phần mô tả rebuild cần TV3 rà soát trước khi nhập
   vào bản thảo chung.
 
-## TV5: Robin Hood Hashing
+## TV5 - Châu Minh Tiến (MSSV: QE200077): Robin Hood Hashing
 
 - Cài đặt Robin Hood (`rh/base`) và biến thể không early-stop
   (`rh/noearly`, CSV `variant=noearly`).
 - Cung cấp DIB mean/max và bộ đếm probe theo đơn vị ô đã xem.
 - Kiểm thử oracle thao tác, workload và các invariant của Robin Hood.
 
-## TV6: Linear Probing Backshift và CSV Validator
+## TV6 - Võ Ngọc Phú (MSSV: QE200004): Linear Probing Backshift và CSV Validator
 
 - Cài đặt `lp-backshift/base` với cơ chế dịch lùi theo Knuth Algorithm R; ghi
   `backshift=knuth-r` trong `params`.
