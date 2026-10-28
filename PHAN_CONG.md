@@ -44,7 +44,11 @@ mã nguồn, test và dữ liệu, không suy đoán tên cá nhân chưa đư�
 - Xây dựng workload chu kỳ xóa-thêm, sinh truy vấn present/absent và xác minh
   bảng sau workload với oracle.
 - Tích hợp phép đo khối workload cùng các pha bảng đối chứng RQ2.
-- Bổ sung kiểm thử workload trên nhiều thuật toán, seed và mức tải.
+- Bổ sung kiểm thử workload trên sáu cấu hình thuật toán khả dụng, ba seed và
+  bốn mức tải; kiểm tra cả dữ liệu không hợp lệ.
+- Chuẩn bị bản đóng góp Methods/Results/Threats cho RQ2/RQ3 tại
+  `bench/TV4_PAPER_DRAFT.md`; phần mô tả rebuild cần TV3 rà soát trước khi nhập
+  vào bản thảo chung.
 
 ## TV5: Robin Hood Hashing
 

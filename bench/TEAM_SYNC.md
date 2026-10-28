@@ -2,6 +2,15 @@
 
 Commit: 76a92e7 (mốc trước: f901972). Mọi người `git pull --rebase` trước khi làm tiếp.
 
+## Bảo vệ nhánh và máy đo (quy tắc hiện hành)
+
+* Không tự ý merge hoặc push vào `main`. Chỉ TV1 phát lệnh tích hợp/tag chính thức;
+  khi chưa có lệnh đó, giữ thay đổi trên nhánh làm việc và báo trạng thái cho TV1.
+* Trên máy đang chạy batch với `--official`, không chỉnh sửa hoặc commit vào
+  `hashbench/` hay `bench/`; runner cần working tree của các thư mục này sạch.
+* Trước khi bắt đầu đo, xác nhận nhánh/commit và `git status`; sau khi đo, giữ
+  nguyên CSV chính thức và ghi rõ mọi ngoại lệ validator/rerun.
+
 ## Đã có trên main
 
 * Runner đo thật cho RQ1 (thuật toán rh). Lệnh mẫu (PowerShell, chạy ở thư mục gốc dự án):

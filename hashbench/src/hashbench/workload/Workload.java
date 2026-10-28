@@ -76,6 +76,10 @@ public final class Workload {
      */
     public static Workload generate(int p, double load, long steps, long seed, int queries) {
         if (p < 1 || p > 30) throw new IllegalArgumentException("p phải trong [1, 30]");
+        if (Double.isNaN(load) || load <= 0.0 || load > 1.0) {
+            throw new IllegalArgumentException("load phải trong (0, 1]");
+        }
+        if (steps < 0) throw new IllegalArgumentException("steps phải >= 0");
         int cap = 1 << p;
         int n   = (int) Math.round(load * cap);
         if (n < 1) n = 1;

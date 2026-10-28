@@ -123,6 +123,10 @@ Tám cột thống kê mở rộng:
 | `dib_mean` | DIB trung bình, nếu thuật toán hỗ trợ. |
 | `dib_max` | DIB lớn nhất, nếu thuật toán hỗ trợ. |
 
+Phần mô tả paper cho thiết kế workload/control, số liệu RQ2/RQ3 và các đe dọa
+tính hợp lệ có trong [TV4_PAPER_DRAFT.md](TV4_PAPER_DRAFT.md). Đây là bản đóng
+góp cần TV3 rà soát phần tombstone/rebuild trước khi nhập vào bản thảo chung.
+
 `machine_id` để trống trong hai CSV chính thức hiện tại. Cấu hình đo được mô tả
 trong `results/raw/machine.md`: Intel Core i7-10850H, 31,8 GB RAM, Windows 11
 Pro, Temurin Java 8u504. File này là metadata cấp bộ dữ liệu, không phải giá trị

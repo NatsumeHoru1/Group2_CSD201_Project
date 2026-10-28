@@ -36,8 +36,12 @@ public final class WorkloadTests {
              new TestHarness.Body() { public void run() { one(impl, 0.8, M); } });
         test("generate tất định: cùng seed => y hệt, seed khác => khác",
              new TestHarness.Body() { public void run() { determinism(); } });
+        test("workload nhiều seed, mức tải và thuật toán khớp bảng đối chứng",
+             new TestHarness.Body() { public void run() { matrix(impl); } });
         test("presentQueries: mọi phần tử trong liveKeys, không có object trùng pool",
              new TestHarness.Body() { public void run() { presentQueryCheck(); } });
+        test("generate từ chối tham số load hoặc steps không hợp lệ",
+             new TestHarness.Body() { public void run() { invalidInputs(); } });
         test("thời gian generate/execute p=20 (in ra, không assert)",
              new TestHarness.Body() { public void run() { timingLarge(impl); } });
     }
@@ -114,6 +118,66 @@ public final class WorkloadTests {
 
         // Seed khác => pool khác (xác suất va chạm cực thấp)
         check(!Arrays.equals(w1a.pool(), w2.pool()), "pool seed khác phải khác");
+    }
+
+    /** Chạy workload trên ma trận seed/load với mọi implementation khả dụng. */
+    static void matrix(Impl impl) {
+        double[] loads = {0.25, 0.5, 0.8, 1.0};
+        long[] seeds = {1L, 42L, 20261101L};
+        int p = 8;
+        int steps = 129;
+        int blockCycles = 32;
+
+        for (double load : loads) {
+            for (long seed : seeds) {
+                Workload w = Workload.generate(p, load, steps, seed, 256);
+                HashIndex table = impl.f.create(p);
+                eq(0, w.load(table), "nạp workload ma trận không được FULL");
+
+                int blocks = (steps + blockCycles - 1) / blockCycles;
+                long[] blockNanos = new long[blocks];
+                Workload.Result result = w.execute(table, blockCycles, blockNanos);
+                eq(0, result.fullCount, "put workload ma trận không được FULL");
+                eq(blocks, result.blocks, "số block workload ma trận");
+                eq(w.n, table.size(), "size workload ma trận");
+                check(w.verify(table), "verify workload ma trận");
+                for (long nanos : blockNanos) {
+                    check(nanos > 0, "block workload ma trận phải có thời gian");
+                }
+
+                HashIndex control = impl.f.create(p);
+                ControlTable.fill(control, w);
+                eq(QueryBench.timeGets(table, w.presentQueries()).checksum,
+                        QueryBench.timeGets(control, w.presentQueries()).checksum,
+                        "checksum present workload ma trận");
+                eq(QueryBench.timeGets(table, w.absentQueries()).checksum,
+                        QueryBench.timeGets(control, w.absentQueries()).checksum,
+                        "checksum absent workload ma trận");
+            }
+        }
+    }
+
+    static void invalidInputs() {
+        boolean threw = false;
+        try {
+            Workload.generate(8, 0.5, -1, SEED, 10);
+        } catch (IllegalArgumentException expected) {
+            threw = true;
+        }
+        check(threw, "steps âm phải ném IllegalArgumentException");
+
+        double[] invalidLoads = {0.0, -0.5, 1.01, Double.NaN,
+                Double.POSITIVE_INFINITY};
+        for (double load : invalidLoads) {
+            threw = false;
+            try {
+                Workload.generate(8, load, 0, SEED, 10);
+            } catch (IllegalArgumentException expected) {
+                threw = true;
+            }
+            check(threw, "load ngoài (0, 1] phải ném IllegalArgumentException: "
+                    + load);
+        }
     }
 
     /** (a) và (c). */
