@@ -30,6 +30,8 @@ Danh sách thành viên, MSSV và phần việc kỹ thuật được cập nh�
 
 ## TV3: Linear Probing với Tombstone
 
+> **Hướng dẫn TV3:** Để cập nhật tên và MSSV vào bài báo khoa học (`paper/paper.tex`), bạn chỉ cần sửa dòng tiêu đề trên thành dạng: `## TV3 - [Họ và tên] (MSSV: [Mã số]): Linear Probing với Tombstone` (ví dụ: `## TV3 - Lê Văn C (MSSV: QE200999): Linear Probing với Tombstone`). Hệ thống GitHub Actions sẽ tự động đồng bộ sang `paper/authors.tex` và `paper/paper.tex`. Ở local, bạn cũng có thể chạy lệnh: `python bench/sync_authors.py`.
+
 - Cài đặt `lp-tomb` với trạng thái EMPTY/TOMB, tái sử dụng tombstone trong
   insert và hỗ trợ ngưỡng rebuild `tau`.
 - Cung cấp thống kê tombstone, empty và rebuild cho các chỉ số RQ2/RQ3.
