@@ -10,7 +10,7 @@
 \usepackage{hyperref}
 \usepackage{microtype}
 
-% Path resolution for figures: works whether compiled from project root or inside paper/
+% Path resolution for figures: works seamlessly whether compiled from project root or inside paper/
 \graphicspath{{../results/figures/}{results/figures/}{./}}
 
 \hypersetup{
@@ -38,7 +38,7 @@
     }
 }
 
-\date{\small October 28, 2026}
+\date{\small October 29, 2026}
 
 \begin{document}
 
@@ -68,9 +68,9 @@ where $\alpha = N/M$ denotes the load factor. The distinctive strength of SC is 
 
 \textbf{Linear Probing (LP):} All keys reside directly within a flat array of size $M$. The initial bucket index is computed via 64-bit Fibonacci golden-ratio multiplicative hashing:
 \begin{equation}
-h(k) = (int)(((long)k.\texttt{hashCode}() \times \texttt{0x9E3779B97F4A7C15L}) \texttt{>>>} (64 - p))
+h(k) = \left\lfloor \frac{\left( \text{hashCode}(k) \times C_{\phi} \right) \bmod 2^{64}}{2^{64 - p}} \right\rfloor
 \end{equation}
-Collisions are resolved by sequentially stepping to index $i = (i + 1) \ \& \ (M - 1)$. In a tombstone-free table, Knuth's classical asymptotic approximations predict:
+where $C_{\phi} = \texttt{0x9E3779B97F4A7C15L} = \lfloor 2^{64} / \phi \rfloor \approx 11,400,714,819,323,198,485$ represents the golden-ratio constant, implemented in Java as \texttt{(int)(((long)k.hashCode() * C\_PHI) >>> (64 - p))}. Collisions are resolved by sequentially stepping to index $i = (i + 1) \ \& \ (M - 1)$. In a tombstone-free table, Knuth's classical asymptotic approximations predict:
 \begin{equation}
 S_{LP} \approx \frac{1}{2}\left(1 + \frac{1}{1-\alpha}\right), \quad U_{LP} \approx \frac{1}{2}\left(1 + \frac{1}{(1-\alpha)^2}\right)
 \end{equation}
@@ -167,21 +167,21 @@ Experiment 1A assesses sensitivity to load factors $\alpha \in \{0.50, 0.75, 0.9
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=\textwidth]{rq1_time_vs_alpha.png}
+\includegraphics[width=0.95\textwidth]{rq1_time_vs_alpha}
 \caption{RQ1: Median lookup latency (log scale) across load factors $\alpha$. Source: \texttt{rq1\_results.csv}, dataset \texttt{rq1a}.}
 \label{fig:rq1_alpha}
 \end{figure*}
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=\textwidth]{rq1_time_vs_M.png}
+\includegraphics[width=0.95\textwidth]{rq1_time_vs_M}
 \caption{RQ1: Lookup and build latencies as functions of table scale $p$ ($M=2^p$) at $\alpha=0.75$. Source: \texttt{rq1\_results.csv}, dataset \texttt{rq1b}.}
 \label{fig:rq1_size}
 \end{figure*}
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=\textwidth]{rq1_probes_vs_alpha.png}
+\includegraphics[width=0.95\textwidth]{rq1_probes_vs_alpha}
 \caption{RQ1: Measured probe counts from \texttt{--count} passes compared against Knuth's theoretical predictions.}
 \label{fig:rq1_probes}
 \end{figure*}
@@ -224,14 +224,14 @@ $4M$ & 50.0\% & 0.0\% & \textbf{timeout} & \textbf{timeout} \\
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=\textwidth]{rq2_tombstones.png}
-\caption{RQ2: Tombstone/empty slot percentages post-workload and lookup latency versus cycle count $C$. Timeouts highlight empty slot exhaustion.}
+\includegraphics[width=0.95\textwidth]{rq2_tombstones}
+\caption{RQ2: Tombstone/empty slot percentages post-workload and lookup latency versus cycle count $C$. Annotations denote partially completed repetitions ($k/N\text{ ok}$); markers at the upper boundary indicate full 60-second timeouts.}
 \label{fig:rq2}
 \end{figure*}
 
 \textbf{Probe Degradation Analysis:} As $C$ increases from $0$ to $2M$, the proportion of \texttt{EMPTY} cells plummets from $50.0\%$ to just $1.4\%$, coalescing the entire table into a continuous occupied band of live keys and tombstones. Unsuccessful lookup time under LP surges by **$14.5\times$** (from $142.4$\,ns to $2,058.9$\,ns). In contrast, the freshly rebuilt control table maintains stable latency near $100$\,ns.
 
-At $C = 4M$, \texttt{EMPTY} cells are completely exhausted ($0.0\%$). Official benchmark records reveal **12 process timeouts** exceeding the 60-second limit (5 timed out directly within the workload phase, while 7 timed out during the subsequent absent lookup phase as the algorithm was forced to scan all $M = 1,048,576$ slots to confirm absence).
+At $C = 4M$, \texttt{EMPTY} cells are completely exhausted ($0.0\%$). During the workload phase, high probe lengths push execution times to the threshold of the 60-second timeout: 5 out of 9 timed repetitions successfully completed (median runtime $48.974$\,s, annotated in red as $5/9\text{ ok}$ in Fig.~\ref{fig:rq2}), while 4 timed out. In the subsequent absent lookup phase, all 9 repetitions timed out ($>60\text{ s}$) because with zero empty slots remaining, the open-addressing lookup loop must traverse the entire array ($M = 1,048,576$ slots) before concluding absence. Corresponding control phases were subsequently not started.
 
 \subsection{RQ3: Workload Comparison \& Rebuild Latency Trade-offs}
 RQ3 benchmarks four collision resolution configurations under the intensive churn scenario $C = 4M$ at live load 0.8 ($N = 838,860$ keys). Results are detailed in Table~\ref{tab:rq3_results}, Fig.~\ref{fig:rq3_total}, and Fig.~\ref{fig:rq3_blocks}.
@@ -255,21 +255,21 @@ RQ3 benchmarks four collision resolution configurations under the intensive chur
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=\textwidth]{rq3_total_time.png}
+\includegraphics[width=0.95\textwidth]{rq3_total_time}
 \caption{RQ3: Median cumulative workload runtime across algorithms, live load factors, and cycle counts $C$.}
 \label{fig:rq3_total}
 \end{figure*}
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=\textwidth]{rq3_blocks.png}
+\includegraphics[width=0.95\textwidth]{rq3_blocks}
 \caption{RQ3: Median and maximum block latency for 10,000-operation intervals; lower panel shows $\text{max}/\text{median}$ ratios.}
 \label{fig:rq3_blocks}
 \end{figure*}
 
 \textbf{Trade-offs Between Full Rebuilds and Instant Shifting:}
 \begin{enumerate}
-    \item \textbf{Overall Throughput:} \texttt{lp-backshift} achieves the best overall throughput ($5.901$\,s), beating \texttt{lp-tomb+rebuild} ($9.413$\,s) by **$37.3\%$**. Both Robin Hood variants achieve comparable runtimes ($\sim 6.0$\,s).
+    \item \textbf{Overall Throughput:} \texttt{lp-backshift} achieves the best overall throughput ($5.901$\,s), beating \texttt{lp-tomb+rebuild} ($9.413$\,s) by **$37.3\%$**. Both Robin Hood variants achieve comparable runtimes ($\sim 6.0$\,s). Unlike the non-rebuilding LP in RQ2, all configurations with active rebuild or shifting completed 100\% of runs with zero timeouts.
     \item \textbf{Stop-the-World Latency Spikes:} Across $4M$ cycles, \texttt{lp-tomb+rebuild} triggers a median of **23 full-table rebuilds** (expending $2,436.6$\,ms exclusively in tombstone purge passes). This induces severe latency spikes in blocks containing rebuild events, pushing \textbf{Block Max to 121.106\,ms} ($\text{max}/\text{median} \approx 14.6\times$).
     \item \textbf{Predictability of Backshift and Robin Hood:} By reorganizing entries locally at the exact moment of deletion, \texttt{lp-backshift} and Robin Hood bound the $\text{max}/\text{median}$ ratio below $1.7\times$, with peak block latencies never exceeding $12.7$\,ms. This delivers crucial empirical evidence for low-latency, SLA-governed systems.
 \end{enumerate}
