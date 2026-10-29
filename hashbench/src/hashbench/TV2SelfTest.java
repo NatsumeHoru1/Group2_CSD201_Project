@@ -4,14 +4,14 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.SplittableRandom;
 
-/** Kiểm thử nghiệm thu KeyCodec, Hashing và Generator do TV2 phụ trách. */
+/** Kiem thu nghiem thu KeyCodec, Hashing va Generator do TV2 phu trach. */
 public final class TV2SelfTest {
     private TV2SelfTest() {
     }
 
     public static void main(String[] args) {
-        System.out.println("=== KIỂM THỬ MODULE TV2 (KeyCodec, Hashing, Generator) ===");
-        check(Hashing.verifyConstant(), "Sai hằng số Fibonacci");
+        System.out.println("=== KIEM THU MODULE TV2 (KeyCodec, Hashing, Generator) ===");
+        check(Hashing.verifyConstant(), "Sai hang so Fibonacci");
 
         long[] ids = Generator.generatePresentIds(1L, 10000);
         String[] keys = Generator.idsToKeys(ids);
@@ -19,12 +19,12 @@ public final class TV2SelfTest {
         Set<String> uniqueKeys = new HashSet<String>();
         for (int i = 0; i < ids.length; i++) {
             String key = keys[i];
-            check(key.matches("[0-9A-Z]{12}"), "Định dạng khóa không hợp lệ: " + key);
+            check(key.matches("[0-9A-Z]{12}"), "Dinh dang khoa khong hop le: " + key);
             check(KeyCodec.decode(key) == ids[i], "KeyCodec round-trip sai");
-            check(uniqueKeys.add(key), "Khóa sinh bị trùng");
-            check(key.equals(repeated[i]), "Generator không tất định theo seed");
+            check(uniqueKeys.add(key), "Khoa sinh bi trung");
+            check(key.equals(repeated[i]), "Generator khong tat dinh theo seed");
             int hash = Hashing.hash(key, 12);
-            check(hash >= 0 && hash < (1 << 12), "Hash nằm ngoài [0, M)");
+            check(hash >= 0 && hash < (1 << 12), "Hash nam ngoai [0, M)");
         }
         System.out.println("1. Encode/decode, regex, uniqueness, seed determinism, hash range: OK");
 
@@ -35,20 +35,20 @@ public final class TV2SelfTest {
         }
         for (int i = 0; i < absentIds.length; i++) {
             check(!presentIdSet.contains(Long.valueOf(absentIds[i])),
-                    "ID vắng mặt trùng ID có mặt");
+                    "ID vang mat trung ID co mat");
         }
         String[] absent = Generator.idsToKeys(absentIds);
         String digest = Generator.computeSHA256(keys, absent);
-        check(digest.matches("[0-9a-f]{64}"), "SHA-256 không hợp lệ");
-        System.out.println("2. IDs vắng mặt và SHA-256 khóa ASCII: OK (" + digest + ")");
+        check(digest.matches("[0-9a-f]{64}"), "SHA-256 khong hop le");
+        System.out.println("2. IDs vang mat va SHA-256 khoa ASCII: OK (" + digest + ")");
 
         int p = 12;
         int targetHome = 42;
         String keyForHome = Hashing.findKeyWithHome(targetHome, p,
                 new SplittableRandom(12345L));
         check(Hashing.hash(keyForHome, p) == targetHome,
-                "findKeyWithHome trả về home sai");
-        System.out.println("3. Tìm khóa có home cố định (" + targetHome + "): OK");
+                "findKeyWithHome tra ve home sai");
+        System.out.println("3. Tim khoa co home co dinh (" + targetHome + "): OK");
 
         int clusterCount = 2000;
         String[] clustered = Generator.generateClusteredKeys(1L, clusterCount, p);
@@ -58,16 +58,16 @@ public final class TV2SelfTest {
         Set<String> uniqueClustered = new HashSet<String>();
         for (int i = 0; i < clustered.length; i++) {
             check(clustered[i].equals(clusteredAgain[i]),
-                    "Sinh khóa cụm không tất định theo seed");
-            check(uniqueClustered.add(clustered[i]), "Khóa cụm bị trùng");
+                    "Sinh khoa cum khong tat dinh theo seed");
+            check(uniqueClustered.add(clustered[i]), "Khoa cum bi trung");
             if (Hashing.hash(clustered[i], p) < clusterLimit) {
                 inCluster++;
             }
         }
         check(inCluster >= (clusterCount + 9) / 10,
-                "Tỷ lệ khóa cụm nhỏ hơn 10%: " + inCluster);
-        System.out.println("4. Khóa cụm: " + inCluster + "/" + clusterCount
-                + " có hash < " + clusterLimit + " (tối thiểu 10%): OK");
+                "Ty le khoa cum nho hon 10%: " + inCluster);
+        System.out.println("4. Khoa cum: " + inCluster + "/" + clusterCount
+                + " co hash < " + clusterLimit + " (toi thieu 10%): OK");
 
         System.out.println("TV2SelfTest: ALL PASS");
     }

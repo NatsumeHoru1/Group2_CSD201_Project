@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 setlocal EnableDelayedExpansion
 cd /d "%~dp0"
 
@@ -28,7 +29,7 @@ for /R "results\raw" %%F in (*.csv) do (
     set FOUND=1
     echo.
     echo === %%F ===
-    java -cp "hashbench\out" hashbench.CsvValidator "%%F"
+    java -Dfile.encoding=UTF-8 -cp "hashbench\out" hashbench.CsvValidator "%%F"
     if errorlevel 1 set FAIL=1
 )
 

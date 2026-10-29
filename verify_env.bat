@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 setlocal EnableDelayedExpansion
 cd /d "%~dp0"
 
@@ -87,7 +88,7 @@ if errorlevel 1 (
 REM 7. Chay TV2SelfTest de kiem tra cac module TV2
 echo.
 echo --- 5. Chay hashbench.TV2SelfTest:
-"%JAVA_CMD%" -cp hashbench\out hashbench.TV2SelfTest
+"%JAVA_CMD%" -Dfile.encoding=UTF-8 -cp hashbench\out hashbench.TV2SelfTest
 if errorlevel 1 (
     echo [LOI] TV2SelfTest that bai!
     exit /b 1
