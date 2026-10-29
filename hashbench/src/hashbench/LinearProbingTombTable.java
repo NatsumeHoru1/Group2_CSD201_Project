@@ -2,7 +2,7 @@ package hashbench;
 
 import java.util.Arrays;
 
-/** Bảng băm dò tuyến tính dùng trạng thái EMPTY, FULL và TOMB. */
+/** Bang bam do tuyen tinh dung trang thai EMPTY, FULL va TOMB. */
 public class LinearProbingTombTable implements HashIndex, HashStats {
     private static final byte EMPTY = 0;
     private static final byte STATE_FULL = 1;
@@ -70,7 +70,7 @@ public class LinearProbingTombTable implements HashIndex, HashStats {
         return result;
     }
 
-    /** Trả về ô chứa khóa, hoặc -1 nếu không tìm thấy. */
+    /** Tra ve o chua khoa, hoac -1 neu khong tim thay. */
     private int find(String key, int home) {
         int idx = home;
         for (int d = 0; d < capacity; d++) {
@@ -144,7 +144,7 @@ public class LinearProbingTombTable implements HashIndex, HashStats {
         return true;
     }
 
-    /** Xây dựng lại bảng, chỉ giữ khóa sống và xóa trạng thái TOMB. */
+    /** Xay dung lai bang, chi giu khoa song va xoa trang thai TOMB. */
     private void rebuild() {
         long start = System.nanoTime();
         int liveCount = size;
@@ -185,7 +185,7 @@ public class LinearProbingTombTable implements HashIndex, HashStats {
     @Override public long rebuildNanos() { return rebuildNanos; }
     @Override public long probeCount() { return Counters.probeCount; }
 
-    /** Kiểm tra bất biến của các trạng thái ô và chuỗi dò. */
+    /** Kiem tra bat bien cua cac trang thai o va chuoi do. */
     public void validate() {
         int live = 0;
         int tomb = 0;
@@ -227,7 +227,7 @@ public class LinearProbingTombTable implements HashIndex, HashStats {
         }
     }
 
-    /** In trạng thái bảng để duyệt tay, không dùng trong vùng đo. */
+    /** In trang thai bang de duyet tay, khong dung trong vung do. */
     public String dump() {
         StringBuilder result = new StringBuilder();
         for (int i = 0; i < capacity; i++) {

@@ -3,7 +3,7 @@ package hashbench.test;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Khung test tự chứa (không JUnit). Exit code 0 = xanh, 1 = có FAIL, 2 = chưa có cài đặt nào. */
+/** Khung test tu chua (khong JUnit). Exit code 0 = xanh, 1 = co FAIL, 2 = chua co cai dat nao. */
 public final class TestHarness {
     public interface Body { void run() throws Exception; }
 
@@ -34,10 +34,10 @@ public final class TestHarness {
     }
 
     public static void eq(long expected, long actual, String msg) {
-        if (expected != actual) throw new AssertionError(msg + ": mong đợi " + expected + ", nhận " + actual);
+        if (expected != actual) throw new AssertionError(msg + ": mong doi " + expected + ", nhan " + actual);
     }
 
-    /** Chạy r mà không tính vào kết quả chung; trả về số test FAIL bên trong (dùng cho kiểm tra đột biến). */
+    /** Chay r ma khong tinh vao ket qua chung; tra ve so test FAIL ben trong (dung cho kiem tra dot bien). */
     public static int sandbox(Runnable r) {
         int p = passed, f = failed, s = failures.size();
         boolean q = quiet;
@@ -52,7 +52,7 @@ public final class TestHarness {
     }
 
     public static int summary() {
-        System.out.println("\n===== TỔNG KẾT: " + passed + " PASS, " + failed + " FAIL =====");
+        System.out.println("\n===== TONG KET: " + passed + " PASS, " + failed + " FAIL =====");
         for (String f : failures) System.out.println("  - " + f);
         return failed == 0 ? 0 : 1;
     }

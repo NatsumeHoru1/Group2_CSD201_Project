@@ -2,7 +2,7 @@ package hashbench.workload;
 
 import hashbench.HashIndex;
 
-/** Đo một dãy get. checksum = output_check (giá trị tìm thấy + số get không tìm thấy). */
+/** Do mot day get. checksum = output_check (gia tri tim thay + so get khong tim thay). */
 public final class QueryBench {
     public static final class Timing {
         public final long checksum;

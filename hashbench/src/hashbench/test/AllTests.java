@@ -8,10 +8,10 @@ import java.io.UnsupportedEncodingException;
 import java.util.List;
 
 /**
- * Chạy: java -cp out hashbench.test.AllTests [--self] [--ops N] [--only TÊN]
- *   --self : kiểm tra chính harness (reference phải xanh, 4 bản đột biến phải bị bắt)
- *   --ops  : số thao tác oracle (mặc định 1_000_000)
- *   --require-all : coi cấu hình bị SKIP là thất bại (dùng trước khi gắn tag rc1)
+ * Chay: java -cp out hashbench.test.AllTests [--self] [--ops N] [--only TEN]
+ *   --self : kiem tra chinh harness (reference phai xanh, 4 ban dot bien phai bi bat)
+ *   --ops  : so thao tac oracle (mac dinh 1_000_000)
+ *   --require-all : coi cau hinh bi SKIP la that bai (dung truoc khi gan tag rc1)
  */
 public final class AllTests {
     private AllTests() {}
@@ -34,10 +34,10 @@ public final class AllTests {
         else for (Impl i : Registry.all()) {
             String why = Registry.unavailableReason(i);
             if (why == null) impls.add(i);
-            else { skipped++; System.out.println("SKIP  " + i.name + "  (chưa dùng được: " + why + ")"); }
+            else { skipped++; System.out.println("SKIP  " + i.name + "  (chua dung duoc: " + why + ")"); }
         }
         if (impls.isEmpty()) {
-            System.out.println("Chưa có cấu hình nào dùng được trong HashIndexFactory.");
+            System.out.println("Chua co cau hinh nao dung duoc trong HashIndexFactory.");
             System.exit(2);
         }
         long t0 = System.nanoTime();
@@ -48,11 +48,11 @@ public final class AllTests {
         int code = 0;
         if (self) code = mutationCheck();
         if (skipped > 0) {
-            System.out.println("\nCẢNH BÁO: còn " + skipped + "/6 cấu hình chưa có (SKIP)." + (requireAll ? " --require-all => THẤT BẠI" : ""));
+            System.out.println("\nCANH BAO: con " + skipped + "/6 cau hinh chua co (SKIP)." + (requireAll ? " --require-all => THAT BAI" : ""));
             if (requireAll) code = 1;
         }
         code = Math.max(code, TestHarness.summary());
-        System.out.printf(java.util.Locale.US, "Thời gian: %.1f s%n", (System.nanoTime() - t0) / 1e9);
+        System.out.printf(java.util.Locale.US, "Thoi gian: %.1f s%n", (System.nanoTime() - t0) / 1e9);
         System.exit(code);
     }
 
@@ -63,9 +63,9 @@ public final class AllTests {
         OracleTest.runAll(impl, ops);
     }
 
-    /** Mỗi bản đột biến PHẢI làm ít nhất 1 test FAIL; nếu không, harness yếu. */
+    /** Moi ban dot bien PHAI lam it nhat 1 test FAIL; neu khong, harness yeu. */
     static int mutationCheck() {
-        System.out.println("\n--- Kiểm tra đột biến (harness phải bắt được lỗi) ---");
+        System.out.println("\n--- Kiem tra dot bien (harness phai bat duoc loi) ---");
         int escaped = 0;
         for (final Impl m : Registry.mutants()) {
             final Impl impl = m;
@@ -76,7 +76,7 @@ public final class AllTests {
                     OracleTest.runAll(impl, 60_000);
                 }
             });
-            System.out.println((caught > 0 ? "BẮT ĐƯỢC  " : "LỌT LƯỚI   ") + impl.name + " (" + caught + " test FAIL)");
+            System.out.println((caught > 0 ? "BAT DUOC  " : "LOT LUOI   ") + impl.name + " (" + caught + " test FAIL)");
             if (caught == 0) escaped++;
         }
         return escaped == 0 ? 0 : 1;

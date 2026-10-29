@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Bản đột biến thử nghiệm: mỗi chế độ làm một lỗi nhỏ để harness phải bắt được.
+ * Ban dot bien thu nghiem: moi che do lam mot loi nho de harness phai bat duoc.
  */
 public class BuggyIndex implements HashIndex {
     public enum Mode {
@@ -28,7 +28,7 @@ public class BuggyIndex implements HashIndex {
     @Override
     public int put(String key, int value) {
         requireKey(key);
-        if (value == NOT_FOUND) throw new IllegalArgumentException("value không được bằng NOT_FOUND");
+        if (value == NOT_FOUND) throw new IllegalArgumentException("value khong duoc bang NOT_FOUND");
         if (map.containsKey(key)) {
             map.put(key, value);
             return mode == Mode.WRONG_UPDATE ? INSERTED : UPDATED;
@@ -69,6 +69,6 @@ public class BuggyIndex implements HashIndex {
     }
 
     private static void requireKey(String key) {
-        if (key == null) throw new IllegalArgumentException("key không được null");
+        if (key == null) throw new IllegalArgumentException("key khong duoc null");
     }
 }

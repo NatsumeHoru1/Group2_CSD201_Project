@@ -13,12 +13,12 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-/** Khởi chạy tiến trình con và thu hoạch kết quả từng pha. */
+/** Khoi chay tien trinh con va thu hoach ket qua tung pha. */
 public final class Runner {
     private Runner() {
     }
 
-    /** Chạy pha stub với CSV mặc định và trả về trạng thái tổng quát. */
+    /** Chay pha stub voi CSV mac dinh va tra ve trang thai tong quat. */
     public static String run(RunConfig config) throws IOException, InterruptedException {
         RunResult result = runWithCsv(config, Paths.get("results", "raw", "runner.csv"),
                 Paths.get("."));
@@ -35,33 +35,33 @@ public final class Runner {
         return "ok";
     }
 
-    /** Chạy con, đọc phase log sau khi kết thúc và ghi một hàng CSV cho mỗi pha. */
+    /** Chay con, doc phase log sau khi ket thuc va ghi mot hang CSV cho moi pha. */
     public static RunResult runWithCsv(RunConfig config, Path csvPath, Path workingDirectory)
             throws IOException, InterruptedException {
         return runWithCsv(config, csvPath, workingDirectory, false);
     }
 
-    /** Chạy benchmark; official=true yêu cầu hash git khả dụng và cây benchmark sạch. */
+    /** Chay benchmark; official=true yeu cau hash git kha dung va cay benchmark sach. */
     public static RunResult runWithCsv(RunConfig config, Path csvPath, Path workingDirectory,
             boolean official) throws IOException, InterruptedException {
         if (config == null) {
-            throw new IllegalArgumentException("config không được null");
+            throw new IllegalArgumentException("config khong duoc null");
         }
         if (csvPath == null || workingDirectory == null) {
-            throw new IllegalArgumentException("Đường dẫn CSV và thư mục làm việc là bắt buộc");
+            throw new IllegalArgumentException("Duong dan CSV va thu muc lam viec la bat buoc");
         }
         if (config.capacity() <= 0) {
-            throw new IllegalArgumentException("Dung lượng bảng không hợp lệ");
+            throw new IllegalArgumentException("Dung luong bang khong hop le");
         }
         GitState gitState = readGitState(workingDirectory.toAbsolutePath().normalize());
         if (official && !gitState.available) {
             throw new OfficialRunException(
-                    "Official benchmark bị từ chối: không lấy được git hash/trạng thái "
+                    "Official benchmark bi tu choi: khong lay duoc git hash/trang thai "
                     + "trong " + workingDirectory);
         }
         if (official && !gitState.clean) {
             throw new OfficialRunException(
-                    "Official benchmark bị từ chối: hashbench/ hoặc bench/ chưa sạch.");
+                    "Official benchmark bi tu choi: hashbench/ hoac bench/ chua sach.");
         }
 
         String javaName = "java";
@@ -165,7 +165,7 @@ public final class Runner {
         }
         String countMarker = "Counters.ON=" + Boolean.toString(config.countMode);
         if (!timedOut && !output.contains(countMarker)) {
-            throw new IOException("Tiến trình con không xác nhận " + countMarker
+            throw new IOException("Tien trinh con khong xac nhan " + countMarker
                     + ". Output: " + output);
         }
         List<PhaseResult> results = collectPhases(
@@ -181,7 +181,7 @@ public final class Runner {
                 output.contains("Counters.ON=true"), gitState.gitCommit, results);
     }
 
-    /** Thu thập hash và trạng thái thay đổi trong scope benchmark, giới hạn mỗi lệnh 10s. */
+    /** Thu thap hash va trang thai thay doi trong scope benchmark, gioi han moi lenh 10s. */
     private static GitState readGitState(Path workingDirectory) throws InterruptedException {
         GitCommand hash = runGit(workingDirectory, "rev-parse", "--short", "HEAD");
         GitCommand status = runGit(workingDirectory, "status", "--porcelain",
@@ -194,7 +194,7 @@ public final class Runner {
         return new GitState(clean ? commit : commit + "-dirty", clean, true);
     }
 
-    /** Chạy một lệnh git, giới hạn thời gian tối đa mười giây. */
+    /** Chay mot lenh git, gioi han thoi gian toi da muoi giay. */
     private static GitCommand runGit(Path workingDirectory, String... arguments)
             throws InterruptedException {
         Path outputFile = null;
@@ -237,7 +237,7 @@ public final class Runner {
         }
     }
 
-    /** Lỗi rõ ràng khi --official không đáp ứng điều kiện repo. */
+    /** Loi ro rang khi --official khong dap ung dieu kien repo. */
     public static final class OfficialRunException extends IOException {
         private static final long serialVersionUID = 1L;
 
@@ -272,13 +272,13 @@ public final class Runner {
         }
     }
 
-    /** Thêm cặp tham số CLI vào lệnh tiến trình con. */
+    /** Them cap tham so CLI vao lenh tien trinh con. */
     private static void addArgument(List<String> command, String name, String value) {
         command.add(name);
         command.add(value);
     }
 
-    /** Ghép tên pha theo dấu phân cách CLI. */
+    /** Ghep ten pha theo dau phan cach CLI. */
     private static String join(List<String> values, String separator) {
         StringBuilder result = new StringBuilder();
         for (int i = 0; i < values.size(); i++) {
@@ -290,7 +290,7 @@ public final class Runner {
         return result.toString();
     }
 
-    /** Đổi classpath tương đối thành tuyệt đối trước khi tiến trình đổi thư mục làm việc. */
+    /** Doi classpath tuong doi thanh tuyet doi truoc khi tien trinh doi thu muc lam viec. */
     private static String absoluteClassPath() {
         String[] entries = System.getProperty("java.class.path").split(
                 java.util.regex.Pattern.quote(File.pathSeparator), -1);
@@ -305,13 +305,13 @@ public final class Runner {
         return result.toString();
     }
 
-    /** Kết hợp log với trạng thái của pha lỗi và những pha chưa được bắt đầu. */
+    /** Ket hop log voi trang thai cua pha loi va nhung pha chua duoc bat dau. */
     private static List<PhaseResult> collectPhases(String procId, List<String> phases,
             List<PhaseLog.Entry> entries, boolean timedOut, int exitCode) throws IOException {
         Map<String, PhaseLog.Entry> byPhase = new HashMap<String, PhaseLog.Entry>();
         for (PhaseLog.Entry entry : entries) {
             if (byPhase.put(entry.phase, entry) != null) {
-                throw new IOException("Pha bị ghi lặp trong phase log: " + entry.phase);
+                throw new IOException("Pha bi ghi lap trong phase log: " + entry.phase);
             }
         }
 
@@ -347,7 +347,7 @@ public final class Runner {
         return results;
     }
 
-    /** Một dòng kết quả pha đã được cha thu hoạch. */
+    /** Mot dong ket qua pha da duoc cha thu hoach. */
     public static final class PhaseResult {
         public final String procId;
         public final String phase;
@@ -396,13 +396,13 @@ public final class Runner {
             this.dibMax = dibMax;
         }
 
-        /** Tạo run_id duy nhất từ proc_id và tên pha. */
+        /** Tao run_id duy nhat tu proc_id va ten pha. */
         public String runId() {
             return CsvWriter.runId(procId, phase);
         }
     }
 
-    /** Tổng hợp trạng thái tiến trình con và các pha đã thu hoạch. */
+    /** Tong hop trang thai tien trinh con va cac pha da thu hoach. */
     public static final class RunResult {
         public final String procId;
         public final String wallMs;

@@ -6,14 +6,14 @@ import hashbench.KeyCodec;
 import java.util.SplittableRandom;
 
 /**
- * Workload xóa-thêm tuần hoàn cho RQ2/RQ3.
- * Mỗi chu kỳ: xóa 1 khóa ngẫu nhiên đang sống → thêm 1 khóa mới.
- * Thiết kế O(1)/chu kỳ: dùng mảng chỉ số liveIdx thay vì HashSet.
+ * Workload xoa-them tuan hoan cho RQ2/RQ3.
+ * Moi chu ky: xoa 1 khoa ngau nhien dang song -> them 1 khoa moi.
+ * Thiet ke O(1)/chu ky: dung mang chi so liveIdx thay vi HashSet.
  */
 public final class Workload {
 
     // ------------------------------------------------------------------ //
-    //  Kết quả execute                                                     //
+    //  Ket qua execute                                                     //
     // ------------------------------------------------------------------ //
     public static final class Result {
         public final int  fullCount;
@@ -28,24 +28,24 @@ public final class Workload {
     }
 
     // ------------------------------------------------------------------ //
-    //  Trường công khai bất biến                                           //
+    //  Truong cong khai bat bien                                           //
     // ------------------------------------------------------------------ //
     public final int  p;
-    public final int  n;          // N = round(load * 2^p), kẹp [1, 2^p]
-    public final long steps;      // số chu kỳ C
-    public final int  queries;    // số truy vấn mỗi loại
+    public final int  n;          // N = round(load * 2^p), kep [1, 2^p]
+    public final long steps;      // so chu ky C
+    public final int  queries;    // so truy van moi loai
 
     // ------------------------------------------------------------------ //
-    //  Dữ liệu nội bộ (tính một lần khi generate)                         //
+    //  Du lieu noi bo (tinh mot lan khi generate)                         //
     // ------------------------------------------------------------------ //
-    private final String[] pool;        // dài N+steps: [0,N)=ban đầu, [N,N+steps)=thêm theo thứ tự
-    private final int[]    victimIdx;   // victimIdx[i]: chỉ số trong pool bị xóa ở chu kỳ i
-    private final int[]    liveIdxFinal;// liveIdx sau khi mô phỏng đủ steps chu kỳ (dài N)
-    private final String[] presentQueriesArr; // queries object String MỚI từ tập sống
-    private final String[] absentQueriesArr;  // queries khóa không bao giờ trong pool
+    private final String[] pool;        // dai N+steps: [0,N)=ban dau, [N,N+steps)=them theo thu tu
+    private final int[]    victimIdx;   // victimIdx[i]: chi so trong pool bi xoa o chu ky i
+    private final int[]    liveIdxFinal;// liveIdx sau khi mo phong du steps chu ky (dai N)
+    private final String[] presentQueriesArr; // queries object String MOI tu tap song
+    private final String[] absentQueriesArr;  // queries khoa khong bao gio trong pool
 
     // ------------------------------------------------------------------ //
-    //  Constructor riêng tư                                                //
+    //  Constructor rieng tu                                                //
     // ------------------------------------------------------------------ //
     private Workload(int p, int n, long steps, int queries,
                      String[] pool, int[] victimIdx, int[] liveIdxFinal,
@@ -62,67 +62,67 @@ public final class Workload {
     }
 
     // ================================================================== //
-    //  API công khai                                                       //
+    //  API cong khai                                                       //
     // ================================================================== //
 
     /**
-     * Sinh workload tất định theo seed.
+     * Sinh workload tat dinh theo seed.
      *
-     * @param p       log2 dung lượng bảng, [1..30]
-     * @param load    hệ số tải, (0,1]
-     * @param steps   số chu kỳ C (ép int khi dùng mảng Java)
-     * @param seed    hạt gieo ngẫu nhiên
-     * @param queries số truy vấn mỗi loại (có mặt / vắng mặt)
+     * @param p       log2 dung luong bang, [1..30]
+     * @param load    he so tai, (0,1]
+     * @param steps   so chu ky C (ep int khi dung mang Java)
+     * @param seed    hat gieo ngau nhien
+     * @param queries so truy van moi loai (co mat / vang mat)
      */
     public static Workload generate(int p, double load, long steps, long seed, int queries) {
-        if (p < 1 || p > 30) throw new IllegalArgumentException("p phải trong [1, 30]");
+        if (p < 1 || p > 30) throw new IllegalArgumentException("p phai trong [1, 30]");
         if (Double.isNaN(load) || load <= 0.0 || load > 1.0) {
-            throw new IllegalArgumentException("load phải trong (0, 1]");
+            throw new IllegalArgumentException("load phai trong (0, 1]");
         }
-        if (steps < 0) throw new IllegalArgumentException("steps phải >= 0");
+        if (steps < 0) throw new IllegalArgumentException("steps phai >= 0");
         int cap = 1 << p;
         int n   = (int) Math.round(load * cap);
         if (n < 1) n = 1;
         if (n > cap) n = cap;
 
-        // Kiểm tràn mảng Java (mảng tối đa Integer.MAX_VALUE phần tử)
+        // Kiem tran mang Java (mang toi da Integer.MAX_VALUE phan tu)
         long totalPool = (long) n + steps;
         long totalIds  = totalPool + queries;
         if (steps > Integer.MAX_VALUE || queries < 0 ||
             totalPool > Integer.MAX_VALUE || totalIds > Integer.MAX_VALUE) {
-            throw new IllegalArgumentException("steps hoặc queries quá lớn cho mảng Java");
+            throw new IllegalArgumentException("steps hoac queries qua lon cho mang Java");
         }
         int stepsI   = (int) steps;
         int totalInt = (int) totalIds;
 
-        // ── Bước 1: sinh toàn bộ ID không trùng một lần ─────────────── //
+        // -- Buoc 1: sinh toan bo ID khong trung mot lan --------------- //
         long[] allIds = Generator.generatePresentIds(seed, totalInt);
-        // pool[0..N+steps): các khóa ban đầu + thêm
+        // pool[0..N+steps): cac khoa ban dau + them
         String[] pool = Generator.idsToKeys(java.util.Arrays.copyOfRange(allIds, 0, n + stepsI));
-        // absentQueries: phần còn lại (không bao giờ nằm trong pool)
+        // absentQueries: phan con lai (khong bao gio nam trong pool)
         String[] absentQ = Generator.idsToKeys(
                 java.util.Arrays.copyOfRange(allIds, n + stepsI, totalInt));
 
-        // ── Bước 2: mô phỏng nạn nhân (O(steps), không cần bảng) ────── //
+        // -- Buoc 2: mo phong nan nhan (O(steps), khong can bang) ------ //
         int[] liveIdx  = new int[n];
-        for (int k = 0; k < n; k++) liveIdx[k] = k;  // liveIdx[k] = chỉ số trong pool
+        for (int k = 0; k < n; k++) liveIdx[k] = k;  // liveIdx[k] = chi so trong pool
 
         int[] vicIdx = new int[stepsI];
         SplittableRandom rng = new SplittableRandom(seed ^ 0x57A11C0DEL);
         for (int i = 0; i < stepsI; i++) {
             int j = rng.nextInt(n);
-            vicIdx[i]  = liveIdx[j];   // chỉ số trong pool bị xóa
-            liveIdx[j] = n + i;        // thay bằng khóa mới (chỉ số trong pool)
+            vicIdx[i]  = liveIdx[j];   // chi so trong pool bi xoa
+            liveIdx[j] = n + i;        // thay bang khoa moi (chi so trong pool)
         }
-        // liveIdx giờ là tập sống SAU steps chu kỳ (dùng cho liveKeys & presentQueries)
+        // liveIdx gio la tap song SAU steps chu ky (dung cho liveKeys & presentQueries)
         int[] liveIdxFinal = java.util.Arrays.copyOf(liveIdx, n);
 
-        // ── Bước 3: presentQueries – object String MỚI từ tập sống ───── //
+        // -- Buoc 3: presentQueries - object String MOI tu tap song ----- //
         SplittableRandom rng2 = new SplittableRandom(seed ^ 0x5DEECE66DL);
         String[] presentQ = new String[queries];
         for (int i = 0; i < queries; i++) {
-            int idx = liveIdxFinal[rng2.nextInt(n)];  // chỉ số trong pool
-            // tạo object String MỚI bằng encode(decode(pool[idx]))
+            int idx = liveIdxFinal[rng2.nextInt(n)];  // chi so trong pool
+            // tao object String MOI bang encode(decode(pool[idx]))
             presentQ[i] = KeyCodec.encode(KeyCodec.decode(pool[idx]));
         }
 
@@ -132,18 +132,18 @@ public final class Workload {
 
     // ------------------------------------------------------------------ //
 
-    /** pool[0..N+steps): [0,N)=khóa ban đầu, [N,N+steps)=khóa thêm theo chu kỳ. */
+    /** pool[0..N+steps): [0,N)=khoa ban dau, [N,N+steps)=khoa them theo chu ky. */
     public String[] pool() { return pool; }
 
-    /** queries object String MỚI – đều là khóa sống tại mốc C. */
+    /** queries object String MOI - deu la khoa song tai moc C. */
     public String[] presentQueries() { return presentQueriesArr; }
 
-    /** queries khóa không bao giờ nằm trong pool. */
+    /** queries khoa khong bao gio nam trong pool. */
     public String[] absentQueries() { return absentQueriesArr; }
 
     /**
-     * N khóa sống tại mốc C (tham chiếu tới phần tử pool),
-     * thứ tự theo ô sống 0..N-1.
+     * N khoa song tai moc C (tham chieu toi phan tu pool),
+     * thu tu theo o song 0..N-1.
      */
     public String[] liveKeys() {
         String[] live = new String[n];
@@ -154,17 +154,17 @@ public final class Workload {
     }
 
     /**
-     * Giá trị xác định theo khóa: key.hashCode() | 1.
-     * Không bao giờ bằng Integer.MIN_VALUE (NOT_FOUND).
+     * Gia tri xac dinh theo khoa: key.hashCode() | 1.
+     * Khong bao gio bang Integer.MIN_VALUE (NOT_FOUND).
      */
     public static int valueOf(String key) {
-        // key.hashCode() | 1 đảm bảo giá trị lẻ, không phải MIN_VALUE
+        // key.hashCode() | 1 dam bao gia tri le, khong phai MIN_VALUE
         return key.hashCode() | 1;
     }
 
     /**
-     * Nạp N khóa ban đầu (pool[0..N)) vào bảng theo thứ tự.
-     * @return số lần t.put trả FULL
+     * Nap N khoa ban dau (pool[0..N)) vao bang theo thu tu.
+     * @return so lan t.put tra FULL
      */
     public int load(HashIndex t) {
         int fullCount = 0;
@@ -175,58 +175,58 @@ public final class Workload {
     }
 
     /**
-     * Chạy đúng steps chu kỳ: xóa pool[victimIdx[i]], thêm pool[N+i].
-     * Vòng lặp chỉ gồm t.remove và t.put, không cấp phát, không HashSet.
-     * Đo block bằng System.nanoTime() đặt ở đầu và cuối MỖI khối.
+     * Chay dung steps chu ky: xoa pool[victimIdx[i]], them pool[N+i].
+     * Vong lap chi gom t.remove va t.put, khong cap phat, khong HashSet.
+     * Do block bang System.nanoTime() dat o dau va cuoi MOI khoi.
      *
-     * @param t           bảng băm (đã load)
-     * @param blockCycles số chu kỳ mỗi khối (caller dùng 5000)
-     * @param blockNanos  mảng ghi thời gian mỗi khối (null nếu không cần);
-     *                    độ dài phải >= ceil(steps/blockCycles)
+     * @param t           bang bam (da load)
+     * @param blockCycles so chu ky moi khoi (caller dung 5000)
+     * @param blockNanos  mang ghi thoi gian moi khoi (null neu khong can);
+     *                    do dai phai >= ceil(steps/blockCycles)
      * @return Result{fullCount, ops=steps*2, blocks}
      */
     public Result execute(HashIndex t, int blockCycles, long[] blockNanos) {
         int  stepsI    = (int) steps;
         int  fullCount = 0;
         int  blockIdx  = 0;
-        long blockStart = System.nanoTime(); // khởi đầu khối đầu tiên
+        long blockStart = System.nanoTime(); // khoi dau khoi dau tien
 
         for (int i = 0; i < stepsI; i++) {
-            // Đầu khối: khởi đồng hồ (trừ khối đầu tiên đã khởi trước vòng lặp)
+            // Dau khoi: khoi dong ho (tru khoi dau tien da khoi truoc vong lap)
             if (i > 0 && blockCycles > 0 && i % blockCycles == 0) {
                 blockStart = System.nanoTime();
             }
 
-            // Chu kỳ i: remove nạn nhân, put khóa mới
+            // Chu ky i: remove nan nhan, put khoa moi
             t.remove(pool[victimIdx[i]]);
             String newKey = pool[n + i];
             if (t.put(newKey, valueOf(newKey)) == HashIndex.FULL) fullCount++;
 
-            // Cuối khối: ghi thời gian
+            // Cuoi khoi: ghi thoi gian
             if (blockCycles > 0 && (i + 1) % blockCycles == 0) {
                 if (blockNanos != null) {
-                    blockNanos[blockIdx] = System.nanoTime() - blockStart;
+                    long elapsed = System.nanoTime() - blockStart; blockNanos[blockIdx] = elapsed > 0 ? elapsed : 1L;
                 }
                 blockIdx++;
             }
         }
 
-        // Khối cuối (ngắn hơn) – nếu chưa ghi
+        // Khoi cuoi (ngan hon) - neu chua ghi
         if (blockCycles > 0 && stepsI % blockCycles != 0) {
             if (blockNanos != null) {
-                blockNanos[blockIdx] = System.nanoTime() - blockStart;
+                long elapsed = System.nanoTime() - blockStart; blockNanos[blockIdx] = elapsed > 0 ? elapsed : 1L;
             }
             blockIdx++;
         }
-        // Trường hợp blockCycles <= 0 hoặc steps == 0
+        // Truong hop blockCycles <= 0 hoac steps == 0
         if (blockCycles <= 0 && stepsI > 0) blockIdx = 0;
 
         return new Result(fullCount, steps * 2L, blockIdx);
     }
 
     /**
-     * Kiểm tra sau workload (NGOÀI vùng đo):
-     * size == N và mọi khóa sống get đúng giá trị.
+     * Kiem tra sau workload (NGOAI vung do):
+     * size == N va moi khoa song get dung gia tri.
      */
     public boolean verify(HashIndex t) {
         String[] live = liveKeys();

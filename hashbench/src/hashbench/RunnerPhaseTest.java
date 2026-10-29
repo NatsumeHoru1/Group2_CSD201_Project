@@ -14,14 +14,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Kiểm tra phase log, tiến trình con, CSV và append mà không dùng JUnit. */
+/** Kiem tra phase log, tien trinh con, CSV va append ma khong dung JUnit. */
 public final class RunnerPhaseTest {
     private static final String[] PHASES = {"build", "present", "absent", "control"};
 
     private RunnerPhaseTest() {
     }
 
-    /** Chạy tất cả ca độc lập, in PASS/FAIL và báo lỗi nếu có ca thất bại. */
+    /** Chay tat ca ca doc lap, in PASS/FAIL va bao loi neu co ca that bai. */
     public static void main(String[] args) throws Exception {
         int failures = 0;
         failures += runCase("normal-phases", new TestCase() {
@@ -85,12 +85,12 @@ public final class RunnerPhaseTest {
             }
         });
         if (failures != 0) {
-            throw new AssertionError(failures + " ca kiểm thử thất bại");
+            throw new AssertionError(failures + " ca kiem thu that bai");
         }
         System.out.println("RunnerPhaseTest: ALL PASS");
     }
 
-    /** Tạo thư mục riêng và dọn đúng thư mục tạm sau từng ca. */
+    /** Tao thu muc rieng va don dung thu muc tam sau tung ca. */
     private static int runCase(String name, TestCase test) throws Exception {
         Path root = Files.createTempDirectory("hashbench-" + name + "-");
         try {
@@ -106,12 +106,12 @@ public final class RunnerPhaseTest {
         }
     }
 
-    /** Kiểm tra bốn pha bình thường trong bộ nhớ và khi đọc lại CSV. */
+    /** Kiem tra bon pha binh thuong trong bo nho va khi doc lai CSV. */
     private static void testNormalPhases(Path root) throws Exception {
         RunConfig config = config(10, false).withSleepPhase(null, 0L);
         Runner.RunResult result = run(config, root);
-        assertEquals(4, result.phases.size(), "số pha");
-        assertTrue(!result.childCountEnabled, "count mode của con phải tắt");
+        assertEquals(4, result.phases.size(), "so pha");
+        assertTrue(!result.childCountEnabled, "count mode cua con phai tat");
         assertExpectedPhases(result, new String[] {"ok", "ok", "ok", "ok"},
                 new String[] {"", "", "", ""});
         assertCsv(root.resolve("results.csv"), result, config,
@@ -119,12 +119,12 @@ public final class RunnerPhaseTest {
                 new String[] {"", "", "", ""});
     }
 
-    /** Ghi hash sạch, hậu tố dirty và chặn official khi source scope thay đổi. */
+    /** Ghi hash sach, hau to dirty va chan official khi source scope thay doi. */
     private static void testGitCommitMetadata(Path root) throws Exception {
         try {
             runGit(root, "--version");
         } catch (IOException exception) {
-            System.out.println("SKIP git-commit-metadata: git không có trên PATH");
+            System.out.println("SKIP git-commit-metadata: git khong co tren PATH");
             return;
         }
         Path source = root.resolve("hashbench").resolve("x.txt");
@@ -160,18 +160,18 @@ public final class RunnerPhaseTest {
             Runner.runWithCsv(config, officialCsv, root, true);
         } catch (Runner.OfficialRunException exception) {
             refused = true;
-            assertTrue(exception.getMessage().contains("Official benchmark bị từ chối"),
-                    "official phải báo rõ lý do");
+            assertTrue(exception.getMessage().contains("Official benchmark bi tu choi"),
+                    "official phai bao ro ly do");
         }
-        assertTrue(refused, "official phải từ chối cây bẩn");
-        assertTrue(!Files.exists(officialCsv), "official bị từ chối không được ghi CSV");
+        assertTrue(refused, "official phai tu choi cay ban");
+        assertTrue(!Files.exists(officialCsv), "official bi tu choi khong duoc ghi CSV");
     }
 
-    /** Kiểm tra timeout khi absent đang chạy và control chưa bắt đầu. */
+    /** Kiem tra timeout khi absent dang chay va control chua bat dau. */
     private static void testTimeout(Path root) throws Exception {
         RunConfig config = config(5, false).withSleepPhase("absent", 30L);
         Runner.RunResult result = run(config, root);
-        assertTrue(result.timedOut, "tiến trình phải timeout");
+        assertTrue(result.timedOut, "tien trinh phai timeout");
         assertExpectedPhases(result, new String[] {"ok", "ok", "timeout", "timeout"},
                 new String[] {"", "", "", "not_started"});
         assertCsv(root.resolve("results.csv"), result, config,
@@ -179,7 +179,7 @@ public final class RunnerPhaseTest {
                 new String[] {"", "", "", "not_started"});
     }
 
-    /** Kiểm tra crash giữa present và status crash của các pha chưa chạy. */
+    /** Kiem tra crash giua present va status crash cua cac pha chua chay. */
     private static void testCrash(Path root) throws Exception {
         RunConfig config = config(10, false).withExitPhase("present", 1);
         Runner.RunResult result = run(config, root);
@@ -191,7 +191,7 @@ public final class RunnerPhaseTest {
                 new String[] {"", "", "not_started", "not_started"});
     }
 
-    /** Kiểm tra OOM được ghi cho pha đang chạy và truyền cho các pha sau. */
+    /** Kiem tra OOM duoc ghi cho pha dang chay va truyen cho cac pha sau. */
     private static void testOutOfMemory(Path root) throws Exception {
         RunConfig config = config(10, false).withOomPhase("present");
         Runner.RunResult result = run(config, root);
@@ -203,11 +203,11 @@ public final class RunnerPhaseTest {
                 new String[] {"", "", "not_started", "not_started"});
     }
 
-    /** Kiểm tra tiến trình con nhận và xác nhận trạng thái --count. */
+    /** Kiem tra tien trinh con nhan va xac nhan trang thai --count. */
     private static void testCountForwarding(Path root) throws Exception {
         RunConfig config = config(10, true);
         Runner.RunResult result = run(config, root);
-        assertTrue(result.childCountEnabled, "Counters.ON của con phải bật");
+        assertTrue(result.childCountEnabled, "Counters.ON cua con phai bat");
         assertExpectedPhases(result, new String[] {"ok", "ok", "ok", "ok"},
                 new String[] {"", "", "", ""});
         assertCsv(root.resolve("results.csv"), result, config,
@@ -215,7 +215,7 @@ public final class RunnerPhaseTest {
                 new String[] {"", "", "", ""});
     }
 
-    /** Chạy hai tiến trình vào cùng CSV và xác nhận header chỉ xuất hiện một lần. */
+    /** Chay hai tien trinh vao cung CSV va xac nhan header chi xuat hien mot lan. */
     private static void testCsvAppend(Path root) throws Exception {
         Path csv = root.resolve("append.csv");
         RunConfig config1 = config(10, false);
@@ -226,53 +226,53 @@ public final class RunnerPhaseTest {
         Runner.RunResult first = Runner.runWithCsv(config1, csv, root);
         Runner.RunResult second = Runner.runWithCsv(config2, csv, root);
         List<String[]> rows = readCsv(csv);
-        assertEquals(CsvSchema.COLUMNS.length, rows.get(0).length, "số cột header");
+        assertEquals(CsvSchema.COLUMNS.length, rows.get(0).length, "so cot header");
         assertEquals(1 + first.phases.size() + second.phases.size(), rows.size(),
-                "header duy nhất và số hàng append");
+                "header duy nhat va so hang append");
         assertAllRowsValid(rows);
     }
 
-    /** Kiểm tra proc_id tất định và không trùng lặp giữa các cấu hình khác nhau. */
+    /** Kiem tra proc_id tat dinh va khong trung lap giua cac cau hinh khac nhau. */
     private static void testDeterministicProcId(Path root) throws Exception {
         RunConfig c1 = new RunConfig("RQ1", "rh", "base", "rq1a", 0L, 18, 0.75, 0,
                 Double.POSITIVE_INFINITY, 0.0, 1000000L, 1L, 1, "2g", "m1", 60, false);
         assertEquals("RQ1_rh_base_rq1a_p18_a0p75_tinf_s1_r1", c1.procId(), "procId base");
         assertTrue(c1.procId().matches("[A-Za-z0-9_-]+"), "procId regex");
-        assertEquals(c1.procId(), c1.procId(), "procId tất định");
+        assertEquals(c1.procId(), c1.procId(), "procId tat dinh");
 
         RunConfig cCount = c1.withCountMode(true);
         assertEquals("RQ1_rh_base_rq1a_p18_a0p75_tinf_s1_r1-count", cCount.procId(), "procId count");
 
         RunConfig cTau = new RunConfig("RQ1", "lp-tomb", "base", "rq1a", 0L, 18, 0.75, 0,
                 0.2, 0.0, 1000000L, 1L, 1, "2g", "m1", 60, false);
-        assertEquals("RQ1_lp-tomb_base_rq1a_p18_a0p75_t0p2_s1_r1", cTau.procId(), "procId tau hữu hạn");
+        assertEquals("RQ1_lp-tomb_base_rq1a_p18_a0p75_t0p2_s1_r1", cTau.procId(), "procId tau huu han");
 
         Set<String> seen = new HashSet<String>();
-        assertTrue(seen.add(c1.procId()), "c1 duy nhất");
-        assertTrue(seen.add(cCount.procId()), "cCount duy nhất");
-        assertTrue(seen.add(cTau.procId()), "cTau duy nhất");
+        assertTrue(seen.add(c1.procId()), "c1 duy nhat");
+        assertTrue(seen.add(cCount.procId()), "cCount duy nhat");
+        assertTrue(seen.add(cTau.procId()), "cTau duy nhat");
         assertTrue(seen.add(new RunConfig("RQ1", "rh", "base", "rq1a", 0L, 20, 0.75, 0,
-                Double.POSITIVE_INFINITY, 0.0, 1000000L, 1L, 1, "2g", "m1", 60, false).procId()), "p khác");
+                Double.POSITIVE_INFINITY, 0.0, 1000000L, 1L, 1, "2g", "m1", 60, false).procId()), "p khac");
         assertTrue(seen.add(new RunConfig("RQ1", "rh", "base", "rq1a", 0L, 18, 0.5, 0,
-                Double.POSITIVE_INFINITY, 0.0, 1000000L, 1L, 1, "2g", "m1", 60, false).procId()), "alpha khác");
+                Double.POSITIVE_INFINITY, 0.0, 1000000L, 1L, 1, "2g", "m1", 60, false).procId()), "alpha khac");
         assertTrue(seen.add(new RunConfig("RQ1", "rh", "base", "rq1a", 0L, 18, 0.75, 0,
-                Double.POSITIVE_INFINITY, 0.0, 1000000L, 2L, 1, "2g", "m1", 60, false).procId()), "seed khác");
+                Double.POSITIVE_INFINITY, 0.0, 1000000L, 2L, 1, "2g", "m1", 60, false).procId()), "seed khac");
         assertTrue(seen.add(new RunConfig("RQ1", "rh", "base", "rq1a", 0L, 18, 0.75, 0,
-                Double.POSITIVE_INFINITY, 0.0, 1000000L, 1L, 2, "2g", "m1", 60, false).procId()), "repeat khác");
+                Double.POSITIVE_INFINITY, 0.0, 1000000L, 1L, 2, "2g", "m1", 60, false).procId()), "repeat khac");
         RunConfig rq2 = new RunConfig("RQ2", "lp-tomb", "base", "rq2", 0L,
                 20, 0.0, 262144, Double.POSITIVE_INFINITY, 0.5, 1000000L,
                 1L, 1, "2g", "m1", 60, false);
-        assertEquals(524288L, rq2.n, "n RQ2 từ load");
+        assertEquals(524288L, rq2.n, "n RQ2 tu load");
         assertEquals("RQ2_lp-tomb_base_rq2_p20_a0p0_tinf_l0p5_c262144_s1_r1",
-                rq2.procId(), "procId RQ2 có load/c trước seed");
+                rq2.procId(), "procId RQ2 co load/c truoc seed");
         assertEquals(Arrays.asList("build", "workload", "present", "absent",
                 "ctl_present", "ctl_absent"), RunConfig.phasesForDataset("rq2"),
-                "thứ tự pha RQ2");
+                "thu tu pha RQ2");
         assertEquals(Arrays.asList("build", "workload", "present", "absent"),
-                RunConfig.phasesForDataset("rq3"), "thứ tự pha RQ3");
+                RunConfig.phasesForDataset("rq3"), "thu tu pha RQ3");
     }
 
-    /** Xác nhận parser bỏ qua dòng cuối phase log không có newline kết thúc. */
+    /** Xac nhan parser bo qua dong cuoi phase log khong co newline ket thuc. */
     private static void testTruncatedLog(Path root) throws Exception {
         PhaseLog log = new PhaseLog("truncated_test", root);
         log.append("build", "ok", "1.250", "10", "20", "3", "4",
@@ -285,18 +285,18 @@ public final class RunnerPhaseTest {
                         .getBytes(StandardCharsets.UTF_8),
                 java.nio.file.StandardOpenOption.APPEND);
         List<PhaseLog.Entry> entries = log.readCompleted();
-        assertEquals(2, entries.size(), "số dòng log hoàn chỉnh");
-        assertEquals("build", entries.get(0).phase, "pha hoàn chỉnh");
+        assertEquals(2, entries.size(), "so dong log hoan chinh");
+        assertEquals("build", entries.get(0).phase, "pha hoan chinh");
         assertEquals("10", entries.get(0).heapBefore, "heap_before trong TSV");
         assertEquals("3", entries.get(0).opsCount, "ops_count trong TSV");
         assertEquals("4", entries.get(0).outputCheck, "output_check trong TSV");
         assertEquals("0123456789abcdef", entries.get(0).inputSha256, "hash trong TSV");
-        assertEquals("", entries.get(0).tombRatio, "log cũ thiếu thống kê mở rộng");
-        assertEquals("0.1", entries.get(1).tombRatio, "tomb_ratio trong TSV mở rộng");
-        assertEquals("8", entries.get(1).dibMax, "dib_max trong TSV mở rộng");
+        assertEquals("", entries.get(0).tombRatio, "log cu thieu thong ke mo rong");
+        assertEquals("0.1", entries.get(1).tombRatio, "tomb_ratio trong TSV mo rong");
+        assertEquals("8", entries.get(1).dibMax, "dib_max trong TSV mo rong");
     }
 
-    /** Kiểm tra validator: CSV có 2 dòng trùng run_id => mặc định FAIL, với latest=true => PASS. */
+    /** Kiem tra validator: CSV co 2 dong trung run_id => mac dinh FAIL, voi latest=true => PASS. */
     private static void testValidatorLatestOption(Path root) throws Exception {
         Path csv = root.resolve("dup.csv");
         RunConfig config = new RunConfig("RQ1", "rh", "base", "rq1a", 0L, 10, 0.75,
@@ -305,18 +305,18 @@ public final class RunnerPhaseTest {
         Runner.runWithCsv(config, csv, root);
 
         CsvValidator.Report defaultReport = CsvValidator.validate(csv, false, false);
-        assertTrue(!defaultReport.isValid(), "Mặc định phải FAIL khi có run_id trùng");
+        assertTrue(!defaultReport.isValid(), "Mac dinh phai FAIL khi co run_id trung");
 
         CsvValidator.Report latestReport = CsvValidator.validate(csv, false, true);
-        assertTrue(latestReport.isValid(), "Với latest=true phải PASS khi có run_id trùng: " + latestReport.issues);
+        assertTrue(latestReport.isValid(), "Voi latest=true phai PASS khi co run_id trung: " + latestReport.issues);
     }
 
-    /** Chạy runner vào CSV riêng của test và xác nhận kết quả tiến trình. */
+    /** Chay runner vao CSV rieng cua test va xac nhan ket qua tien trinh. */
     private static Runner.RunResult run(RunConfig config, Path root) throws Exception {
         return Runner.runWithCsv(config, root.resolve("results.csv"), root);
     }
 
-    /** Chạy git không qua pager và trả stdout; mọi command test có timeout hữu hạn. */
+    /** Chay git khong qua pager va tra stdout; moi command test co timeout huu han. */
     private static String runGit(Path directory, String... arguments) throws Exception {
         List<String> command = new ArrayList<String>();
         command.add("git");
@@ -349,37 +349,37 @@ public final class RunnerPhaseTest {
         }
     }
 
-    /** Tạo cấu hình test với metadata hợp lệ, không chạy workload benchmark. */
+    /** Tao cau hinh test voi metadata hop le, khong chay workload benchmark. */
     private static RunConfig config(int timeoutSec, boolean countMode) {
         return new RunConfig("TEST", "rh", "base", "test", 12L, 4,
                 0.75, 7, 0.2, 0.5, 3L, 42L, 1,
                 "2g", "test-machine", timeoutSec, countMode);
     }
 
-    /** Kiểm tra danh sách pha, status, elapsed_ms và ghi chú ngay trong bộ nhớ. */
+    /** Kiem tra danh sach pha, status, elapsed_ms va ghi chu ngay trong bo nho. */
     private static void assertExpectedPhases(Runner.RunResult result,
             String[] statuses, String[] notes) {
-        assertEquals(PHASES.length, result.phases.size(), "số pha trong bộ nhớ");
+        assertEquals(PHASES.length, result.phases.size(), "so pha trong bo nho");
         for (int i = 0; i < PHASES.length; i++) {
             Runner.PhaseResult phase = result.phases.get(i);
-            assertEquals(PHASES[i], phase.phase, "thứ tự pha");
+            assertEquals(PHASES[i], phase.phase, "thu tu pha");
             assertEquals(statuses[i], phase.status, "status " + phase.phase);
             assertEquals(notes[i], phase.phaseNote, "phase_note " + phase.phase);
             if ("ok".equals(statuses[i])) {
                 assertMatches("[0-9]+\\.[0-9]{3}", phase.elapsedMs, "elapsed_ms");
             } else {
-                assertEquals("", phase.elapsedMs, "elapsed_ms phải rỗng khi status != ok");
+                assertEquals("", phase.elapsedMs, "elapsed_ms phai rong khi status != ok");
             }
         }
     }
 
-    /** Đọc file CSV và kiểm tra schema, metadata, trạng thái và run_id duy nhất. */
+    /** Doc file CSV va kiem tra schema, metadata, trang thai va run_id duy nhat. */
     private static void assertCsv(Path csv, Runner.RunResult result, RunConfig config,
             String[] statuses, String[] notes) throws IOException {
         List<String[]> rows = readCsv(csv);
-        assertEquals(CsvSchema.COLUMNS.length, rows.get(0).length, "số cột header");
+        assertEquals(CsvSchema.COLUMNS.length, rows.get(0).length, "so cot header");
         assertTrue(Arrays.equals(CsvSchema.COLUMNS, rows.get(0)), "header CSV sai schema");
-        assertEquals(PHASES.length + 1, rows.size(), "số hàng CSV");
+        assertEquals(PHASES.length + 1, rows.size(), "so hang CSV");
         assertAllRowsValid(rows);
 
         for (int i = 0; i < PHASES.length; i++) {
@@ -410,12 +410,12 @@ public final class RunnerPhaseTest {
                         columns[CsvSchema.ELAPSED_MS_INDEX], "elapsed_ms");
             } else {
                 assertEquals("", columns[CsvSchema.ELAPSED_MS_INDEX],
-                        "CSV elapsed_ms phải rỗng khi status != ok");
+                        "CSV elapsed_ms phai rong khi status != ok");
             }
         }
     }
 
-    /** Xác nhận các trường chưa có dữ liệu thật không bị điền giá trị giả. */
+    /** Xac nhan cac truong chua co du lieu that khong bi dien gia tri gia. */
     private static void assertUnmeasuredColumnsEmpty(String[] columns) {
         int[] indexes = {
             CsvSchema.INPUT_SHA256_INDEX,
@@ -435,11 +435,11 @@ public final class RunnerPhaseTest {
             CsvSchema.DIB_MAX_INDEX
         };
         for (int index : indexes) {
-            assertEquals("", columns[index], "cột chưa có dữ liệu phải để trống");
+            assertEquals("", columns[index], "cot chua co du lieu phai de trong");
         }
     }
 
-    /** Đọc CSV dạng các trường không có dấu phẩy trong dữ liệu test. */
+    /** Doc CSV dang cac truong khong co dau phay trong du lieu test. */
     private static List<String[]> readCsv(Path csv) throws IOException {
         List<String[]> rows = new ArrayList<String[]>();
         try (BufferedReader reader = Files.newBufferedReader(csv, StandardCharsets.UTF_8)) {
@@ -448,35 +448,35 @@ public final class RunnerPhaseTest {
                 rows.add(line.split(",", -1));
             }
         }
-        assertTrue(!rows.isEmpty(), "CSV phải có header");
+        assertTrue(!rows.isEmpty(), "CSV phai co header");
         return rows;
     }
 
-    /** Kiểm tra số cột, run_id duy nhất, trạng thái hợp lệ và elapsed_ms. */
+    /** Kiem tra so cot, run_id duy nhat, trang thai hop le va elapsed_ms. */
     private static void assertAllRowsValid(List<String[]> rows) {
-        assertEquals(CsvSchema.COLUMNS.length, rows.get(0).length, "header đúng số cột");
+        assertEquals(CsvSchema.COLUMNS.length, rows.get(0).length, "header dung so cot");
         Set<String> runIds = new HashSet<String>();
         Set<String> statuses = new HashSet<String>(Arrays.asList(
                 "ok", "timeout", "crash", "oom", "wrong"));
         for (int i = 1; i < rows.size(); i++) {
             String[] columns = rows.get(i);
-            assertEquals(CsvSchema.COLUMNS.length, columns.length, "số cột hàng CSV");
-            assertTrue(runIds.add(columns[CsvSchema.RUN_ID_INDEX]), "run_id bị trùng");
+            assertEquals(CsvSchema.COLUMNS.length, columns.length, "so cot hang CSV");
+            assertTrue(runIds.add(columns[CsvSchema.RUN_ID_INDEX]), "run_id bi trung");
             String status = columns[CsvSchema.STATUS_INDEX];
-            assertTrue(statuses.contains(status), "status ngoài danh sách cho phép: " + status);
+            assertTrue(statuses.contains(status), "status ngoai danh sach cho phep: " + status);
             if (!"ok".equals(status)) {
                 assertEquals("", columns[CsvSchema.ELAPSED_MS_INDEX],
-                        "elapsed_ms phải rỗng khi status != ok");
+                        "elapsed_ms phai rong khi status != ok");
             }
             String phaseNote = columns[CsvSchema.PHASE_NOTE_INDEX];
             if ("not_started".equals(phaseNote)) {
                 assertTrue("timeout".equals(status) || "crash".equals(status)
-                        || "oom".equals(status), "not_started không phù hợp với status");
+                        || "oom".equals(status), "not_started khong phu hop voi status");
             }
         }
     }
 
-    /** Xóa riêng thư mục tạm mà test đã tạo. */
+    /** Xoa rieng thu muc tam ma test da tao. */
     private static void deleteTree(Path root) throws IOException {
         Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
             @Override
@@ -499,28 +499,28 @@ public final class RunnerPhaseTest {
         });
     }
 
-    /** Xác nhận điều kiện đúng và ném lỗi mô tả khi sai. */
+    /** Xac nhan dieu kien dung va nem loi mo ta khi sai. */
     private static void assertTrue(boolean condition, String message) {
         if (!condition) {
             throw new AssertionError(message);
         }
     }
 
-    /** So sánh giá trị kỳ vọng và giá trị thực tế trong test. */
+    /** So sanh gia tri ky vong va gia tri thuc te trong test. */
     private static void assertEquals(Object expected, Object actual, String message) {
         if (expected == null ? actual != null : !expected.equals(actual)) {
             throw new AssertionError(message + ": expected=" + expected + ", actual=" + actual);
         }
     }
 
-    /** Xác nhận chuỗi khớp định dạng biểu thức chính quy yêu cầu. */
+    /** Xac nhan chuoi khop dinh dang bieu thuc chinh quy yeu cau. */
     private static void assertMatches(String regex, String value, String message) {
         if (value == null || !value.matches(regex)) {
-            throw new AssertionError(message + " sai định dạng: " + value);
+            throw new AssertionError(message + " sai dinh dang: " + value);
         }
     }
 
-    /** Chữ ký cho một ca kiểm thử độc lập. */
+    /** Chu ky cho mot ca kiem thu doc lap. */
     private interface TestCase {
         void run(Path root) throws Exception;
     }

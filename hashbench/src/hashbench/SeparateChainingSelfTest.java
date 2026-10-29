@@ -2,7 +2,7 @@ package hashbench;
 
 import java.util.SplittableRandom;
 
-/** Kiểm thử bảng separate chaining và tích hợp qua factory. */
+/** Kiem thu bang separate chaining va tich hop qua factory. */
 public final class SeparateChainingSelfTest {
     private SeparateChainingSelfTest() {
     }
@@ -43,7 +43,7 @@ public final class SeparateChainingSelfTest {
 
         checkThrowsNull(table, "null key");
         if (table.probeCount() <= 0L) {
-            throw new AssertionError("probeCount phải đếm node đã duyệt");
+            throw new AssertionError("probeCount phai dem node da duyet");
         }
         System.out.println("SeparateChainingSelfTest: ALL PASS");
     }

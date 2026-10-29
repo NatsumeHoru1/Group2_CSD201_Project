@@ -1,13 +1,13 @@
 package hashbench;
 
-/** Bảng băm Robin Hood. earlyStop=false là biến thể rh-noearly. */
+/** Bang bam Robin Hood. earlyStop=false la bien the rh-noearly. */
 public class RobinHoodTable implements HashIndex, HashStats {
     private final int p;
     private final int capacity;
     private final int mask;
     private final String[] keys;
     private final int[] vals;
-    private final int[] dib;          // khoảng cách dò của khóa trong mỗi ô
+    private final int[] dib;          // khoang cach do cua khoa trong moi o
     private final boolean earlyStop;
     private int size;
 
@@ -17,7 +17,7 @@ public class RobinHoodTable implements HashIndex, HashStats {
 
     public RobinHoodTable(int p, boolean earlyStop) {
         if (p < 1 || p > 30) {
-            throw new IllegalArgumentException("p phải nằm trong khoảng 1..30");
+            throw new IllegalArgumentException("p phai nam trong khoang 1..30");
         }
         this.p = p;
         this.capacity = 1 << p;
@@ -28,7 +28,7 @@ public class RobinHoodTable implements HashIndex, HashStats {
         this.earlyStop = earlyStop;
     }
 
-    /** Ô nhà của khóa, dùng thư viện Hashing do TV2 cung cấp. */
+    /** O nha cua khoa, dung thu vien Hashing do TV2 cung cap. */
     private int home(String key) {
         return Hashing.hash(key, p);
     }
@@ -56,7 +56,7 @@ public class RobinHoodTable implements HashIndex, HashStats {
         return result;
     }
 
-    /** Trả về chỉ số ô chứa khóa, hoặc -1 nếu không có. */
+    /** Tra ve chi so o chua khoa, hoac -1 neu khong co. */
     private int find(String key, int home) {
         int idx = home;
         for (int d = 0; d < capacity; d++) {
@@ -75,7 +75,7 @@ public class RobinHoodTable implements HashIndex, HashStats {
     public int put(String key, int value) {
         requireKey(key);
         if (value == NOT_FOUND) {
-            throw new IllegalArgumentException("value không được bằng NOT_FOUND");
+            throw new IllegalArgumentException("value khong duoc bang NOT_FOUND");
         }
         int home = home(key);
 
@@ -144,7 +144,7 @@ public class RobinHoodTable implements HashIndex, HashStats {
 
     private static void requireKey(String key) {
         if (key == null) {
-            throw new IllegalArgumentException("key không được null");
+            throw new IllegalArgumentException("key khong duoc null");
         }
     }
 
@@ -173,7 +173,7 @@ public class RobinHoodTable implements HashIndex, HashStats {
     @Override public long rebuildNanos() { return 0L; }
     @Override public long probeCount() { return Counters.probeCount; }
 
-    /** Kiểm tra bất biến; ném IllegalStateException nếu sai. */
+    /** Kiem tra bat bien; nem IllegalStateException neu sai. */
     public void validate() {
         int count = 0;
         for (int i = 0; i < capacity; i++) {
@@ -200,7 +200,7 @@ public class RobinHoodTable implements HashIndex, HashStats {
         }
     }
 
-    /** In trạng thái bảng để dượt, không dùng trong vùng đo. */
+    /** In trang thai bang de duot, khong dung trong vung do. */
     public String dump() {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < capacity; i++) {

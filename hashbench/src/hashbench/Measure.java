@@ -7,27 +7,27 @@ import java.lang.management.MemoryUsage;
 import java.util.Map;
 import java.util.SplittableRandom;
 
-/** Tạo dữ liệu và đo các pha build, present, absent trong tiến trình con. */
+/** Tao du lieu va do cac pha build, present, absent trong tien trinh con. */
 public final class Measure {
     public static final String GENERATOR_VERSION = "2.0";
 
     private Measure() {
     }
 
-    /** Sinh dữ liệu đầu vào và checksum ngoài vùng đo thời gian cho rq1a/rq1b. */
+    /** Sinh du lieu dau vao va checksum ngoai vung do thoi gian cho rq1a/rq1b. */
     public static Data buildData(long seed, int p, double alpha, int queries) {
         return buildDataProfiled(seed, p, alpha, queries, null);
     }
 
-    /** Sinh dữ liệu đầu vào theo dataset (hỗ trợ rq1clust, rq1a, rq1b). */
+    /** Sinh du lieu dau vao theo dataset (ho tro rq1clust, rq1a, rq1b). */
     public static Data buildData(String dataset, long seed, int p, double alpha, int queries) {
         if ("rq1clust".equals(dataset)) {
             if (p < 1 || p > 30 || alpha <= 0.0 || alpha > 1.0 || queries < 0) {
-                throw new IllegalArgumentException("p, alpha hoặc queries không hợp lệ");
+                throw new IllegalArgumentException("p, alpha hoac queries khong hop le");
             }
             long roundedN = Math.round(alpha * (1L << p));
             if (roundedN < 1L || roundedN > Integer.MAX_VALUE - 1L) {
-                throw new IllegalArgumentException("N không thể lưu trong mảng Java");
+                throw new IllegalArgumentException("N khong the luu trong mang Java");
             }
             int n = (int) roundedN;
             String[] present = Generator.generateClusteredKeys(seed, n, p);
@@ -48,15 +48,15 @@ public final class Measure {
         return buildDataProfiled(seed, p, alpha, queries, null);
     }
 
-    /** Sinh dữ liệu và ghi lại thời gian nano/ms của từng bước chuẩn bị nếu có profiler. */
+    /** Sinh du lieu va ghi lai thoi gian nano/ms cua tung buoc chuan bi neu co profiler. */
     public static Data buildDataProfiled(long seed, int p, double alpha, int queries,
             Map<String, Double> profiler) {
         if (p < 1 || p > 30 || alpha <= 0.0 || alpha > 1.0 || queries < 0) {
-            throw new IllegalArgumentException("p, alpha hoặc queries không hợp lệ");
+            throw new IllegalArgumentException("p, alpha hoac queries khong hop le");
         }
         long roundedN = Math.round(alpha * (1L << p));
         if (roundedN < 1L || roundedN > Integer.MAX_VALUE - 1L) {
-            throw new IllegalArgumentException("N không thể lưu trong mảng Java");
+            throw new IllegalArgumentException("N khong the luu trong mang Java");
         }
         int n = (int) roundedN;
 
@@ -78,17 +78,17 @@ public final class Measure {
         long t5 = System.nanoTime();
 
         if (profiler != null) {
-            profiler.put("sinh ID có mặt", (t1 - t0) / 1e6);
+            profiler.put("sinh ID co mat", (t1 - t0) / 1e6);
             profiler.put("idsToKeys", (t2 - t1) / 1e6);
-            profiler.put("sinh khóa vắng mặt", (t3 - t2) / 1e6);
-            profiler.put("sinh truy vấn có mặt", (t4 - t3) / 1e6);
+            profiler.put("sinh khoa vang mat", (t3 - t2) / 1e6);
+            profiler.put("sinh truy van co mat", (t4 - t3) / 1e6);
             profiler.put("computeSHA256", (t5 - t4) / 1e6);
         }
 
         return new Data(present, presentQueries, absentQueries, inputSha256);
     }
 
-    /** Làm nóng ba lần trên dữ liệu nhỏ, không tạo phase log. */
+    /** Lam nong ba lan tren du lieu nho, khong tao phase log. */
     public static void warmUp(String algo, String variant, int p, double alpha,
             double tau, long seed, int queries) {
         int warmP = Math.min(p, 12);
@@ -103,7 +103,7 @@ public final class Measure {
         }
     }
 
-    /** Đo đúng một pha; chuẩn bị heap nằm ngoài vùng System.nanoTime. */
+    /** Do dung mot pha; chuan bi heap nam ngoai vung System.nanoTime. */
     public static PhaseResult runPhase(String phase, HashIndex index, Data data,
             boolean countMode) {
         System.gc();
@@ -124,7 +124,7 @@ public final class Measure {
         } else if ("absent".equals(phase)) {
             outputCheck = runQueries(index, data.absentQueries);
         } else {
-            throw new IllegalArgumentException("Pha đo không hỗ trợ: " + phase);
+            throw new IllegalArgumentException("Pha do khong ho tro: " + phase);
         }
         long elapsedNanos = System.nanoTime() - start;
         long heapPeak = heapBytes(true);
@@ -142,10 +142,10 @@ public final class Measure {
                 data.inputSha256, GENERATOR_VERSION);
     }
 
-    /** Đo một thao tác với cùng quy trình GC, heap và nanoTime dùng cho workload mới. */
+    /** Do mot thao tac voi cung quy trinh GC, heap va nanoTime dung cho workload moi. */
     public static Measurement measure(Runnable operation) {
         if (operation == null) {
-            throw new IllegalArgumentException("operation không được null");
+            throw new IllegalArgumentException("operation khong duoc null");
         }
         System.gc();
         resetHeapPeaks();
@@ -157,7 +157,7 @@ public final class Measure {
         return new Measurement(elapsedNanos, heapBefore, heapPeak);
     }
 
-    /** Trả về tổng dung lượng heap đang dùng hoặc đỉnh heap theo mẫu spec mục 6.4. */
+    /** Tra ve tong dung luong heap dang dung hoac dinh heap theo mau spec muc 6.4. */
     public static long heapBytes(boolean peak) {
         long sum = 0;
         for (MemoryPoolMXBean p : ManagementFactory.getMemoryPoolMXBeans()) {
@@ -168,13 +168,13 @@ public final class Measure {
         return sum;
     }
 
-    /** Đặt lại đỉnh heap của mọi vùng theo đúng mẫu spec mục 6.4. */
+    /** Dat lai dinh heap cua moi vung theo dung mau spec muc 6.4. */
     public static void resetHeapPeaks() {
         for (MemoryPoolMXBean p : ManagementFactory.getMemoryPoolMXBeans())
             if (p.getType() == MemoryType.HEAP) p.resetPeakUsage();
     }
 
-    /** Tính tổng theo đề: giá trị tìm thấy cộng một cho mỗi khóa không tìm thấy. */
+    /** Tinh tong theo de: gia tri tim thay cong mot cho moi khoa khong tim thay. */
     public static long runQueries(HashIndex index, String[] queries) {
         long check = 0L;
         for (int i = 0; i < queries.length; i++) {
@@ -188,7 +188,7 @@ public final class Measure {
         return check;
     }
 
-    /** Thời lượng và số đo heap của một Runnable đã đo. */
+    /** Thoi luong va so do heap cua mot Runnable da do. */
     public static final class Measurement {
         public final long elapsedNanos;
         public final long heapBefore;
@@ -201,7 +201,7 @@ public final class Measure {
         }
     }
 
-    /** Lưu các mảng đầu vào dùng chung cho những pha của một tiến trình. */
+    /** Luu cac mang dau vao dung chung cho nhung pha cua mot tien trinh. */
     public static final class Data {
         public final String[] present;
         public final String[] presentQueries;
@@ -217,7 +217,7 @@ public final class Measure {
         }
     }
 
-    /** Lưu số liệu đo đã thu được cho một pha. */
+    /** Luu so lieu do da thu duoc cho mot pha. */
     public static final class PhaseResult {
         public final String elapsedMs;
         public final String heapBefore;

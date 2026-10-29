@@ -1,6 +1,6 @@
 package hashbench;
 
-/** Bảng băm separate chaining với một bucket cho mỗi home. */
+/** Bang bam separate chaining voi mot bucket cho moi home. */
 public class SeparateChainingTable implements HashIndex, HashStats {
     private final Node[] buckets;
     private final int capacity;
@@ -9,7 +9,7 @@ public class SeparateChainingTable implements HashIndex, HashStats {
 
     public SeparateChainingTable(int p) {
         if (p < 1 || p > 30) {
-            throw new IllegalArgumentException("p phải nằm trong khoảng 1..30");
+            throw new IllegalArgumentException("p phai nam trong khoang 1..30");
         }
         this.p = p;
         this.capacity = 1 << p;
@@ -20,7 +20,7 @@ public class SeparateChainingTable implements HashIndex, HashStats {
     public int put(String key, int value) {
         requireKey(key);
         if (value == NOT_FOUND) {
-            throw new IllegalArgumentException("value không được bằng NOT_FOUND");
+            throw new IllegalArgumentException("value khong duoc bang NOT_FOUND");
         }
         int bucket = Hashing.hash(key, p);
         int traversed = 0;
@@ -85,7 +85,7 @@ public class SeparateChainingTable implements HashIndex, HashStats {
 
     private static void requireKey(String key) {
         if (key == null) {
-            throw new IllegalArgumentException("key không được null");
+            throw new IllegalArgumentException("key khong duoc null");
         }
     }
 
@@ -107,7 +107,7 @@ public class SeparateChainingTable implements HashIndex, HashStats {
     @Override public long rebuildNanos() { return 0L; }
     @Override public long probeCount() { return Counters.probeCount; }
 
-    /** Kiểm tra số node và vị trí bucket của từng khóa. */
+    /** Kiem tra so node va vi tri bucket cua tung khoa. */
     public void validate() {
         int count = 0;
         for (int i = 0; i < buckets.length; i++) {
@@ -123,7 +123,7 @@ public class SeparateChainingTable implements HashIndex, HashStats {
         }
     }
 
-    /** In trạng thái bảng để duyệt tay, không dùng trong vùng đo. */
+    /** In trang thai bang de duyet tay, khong dung trong vung do. */
     public String dump() {
         StringBuilder result = new StringBuilder();
         for (int i = 0; i < buckets.length; i++) {

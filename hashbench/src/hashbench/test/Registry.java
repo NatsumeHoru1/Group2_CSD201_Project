@@ -9,9 +9,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 6 cấu hình kiểm thử, nối vào HashIndexFactory của nhóm. Thuật toán nào factory chưa hỗ trợ thì bị SKIP
- * (không cần sửa file này khi TV2/TV3/TV6 thêm nhánh vào factory). Hỗ trợ cả hai chữ ký:
- *   create(algo, variant, p)   và   create(algo, variant, p, tau)   (TV3 đề xuất, xem TEAM_SYNC).
+ * 6 cau hinh kiem thu, noi vao HashIndexFactory cua nhom. Thuat toan nao factory chua ho tro thi bi SKIP
+ * (khong can sua file nay khi TV2/TV3/TV6 them nhanh vao factory). Ho tro ca hai chu ky:
+ *   create(algo, variant, p)   va   create(algo, variant, p, tau)   (TV3 de xuat, xem TEAM_SYNC).
  */
 public final class Registry {
     public interface Factory { HashIndex create(int p); }
@@ -30,7 +30,7 @@ public final class Registry {
 
     private Registry() {}
 
-    /** Gọi HashIndexFactory.create bằng reflection để không vỡ build khi chữ ký đổi. */
+    /** Goi HashIndexFactory.create bang reflection de khong vo build khi chu ky doi. */
     static HashIndex viaFactory(String algo, String variant, int p, double tau) {
         Method m3 = null, m4 = null;
         for (Method m : hashbench.HashIndexFactory.class.getMethods()) {
@@ -42,10 +42,10 @@ public final class Registry {
         try {
             if (m4 != null) return (HashIndex) m4.invoke(null, algo, variant, p, tau);
             if (m3 != null) {
-                if (!Double.isInfinite(tau)) throw new IllegalArgumentException("factory chưa có tham số tau");
+                if (!Double.isInfinite(tau)) throw new IllegalArgumentException("factory chua co tham so tau");
                 return (HashIndex) m3.invoke(null, algo, variant, p);
             }
-            throw new IllegalArgumentException("HashIndexFactory.create không có chữ ký quen thuộc");
+            throw new IllegalArgumentException("HashIndexFactory.create khong co chu ky quen thuoc");
         } catch (InvocationTargetException e) {
             Throwable c = e.getCause();
             if (c instanceof RuntimeException) throw (RuntimeException) c;
@@ -60,7 +60,7 @@ public final class Registry {
         });
     }
 
-    /** Tất cả 6 cấu hình (có thể chưa dùng được; dùng available() để lọc). */
+    /** Tat ca 6 cau hinh (co the chua dung duoc; dung available() de loc). */
     public static List<Impl> all() {
         List<Impl> l = new ArrayList<Impl>();
         l.add(cfg("sc",              "sc",           "base",    NO_REBUILD, false, false, false));
@@ -72,7 +72,7 @@ public final class Registry {
         return l;
     }
 
-    /** Lý do không dùng được (null nếu dùng được). */
+    /** Ly do khong dung duoc (null neu dung duoc). */
     public static String unavailableReason(Impl impl) {
         try { impl.f.create(4); return null; }
         catch (IllegalArgumentException e) { return e.getMessage(); }

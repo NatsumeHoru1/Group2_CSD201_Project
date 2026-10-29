@@ -1,6 +1,6 @@
 package hashbench;
 
-/** Nơi duy nhất khai báo thứ tự tên cột và chỉ số cột CSV. */
+/** Noi duy nhat khai bao thu tu ten cot va chi so cot CSV. */
 public final class CsvSchema {
     public static final int RUN_ID_INDEX = 0;
     public static final int RQ_INDEX = 1;

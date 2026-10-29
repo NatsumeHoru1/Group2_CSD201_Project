@@ -1,24 +1,24 @@
 package hashbench;
 
 /**
- * Bổ sung tham số mô tả cơ chế đặc biệt vào cột params của CSV.
+ * Bo sung tham so mo ta co che dac biet vao cot params cua CSV.
  *
- * Quy định của đề 2 yêu cầu với lp-backshift phải ghi rõ đã dùng
- * Algorithm R của Knuth hay cách chèn lại cụm của Sedgewick-Wayne.
- * Hàm này chỉ nối thêm một cặp key=value, không sửa các cặp đã có.
+ * Quy dinh cua de 2 yeu cau voi lp-backshift phai ghi ro da dung
+ * Algorithm R cua Knuth hay cach chen lai cum cua Sedgewick-Wayne.
+ * Ham nay chi noi them mot cap key=value, khong sua cac cap da co.
  *
- * Phụ trách: TV6.
+ * Phu trach: TV6.
  */
 public final class CsvParams {
-    /** Khóa tham số mô tả cơ chế xóa dịch lùi. */
+    /** Khoa tham so mo ta co che xoa dich lui. */
     public static final String KEY = "backshift";
 
     private CsvParams() {
     }
 
     /**
-     * Trả về chuỗi params đã bổ sung cơ chế của thuật toán.
-     * Thuật toán khác lp-backshift giữ nguyên chuỗi params.
+     * Tra ve chuoi params da bo sung co che cua thuat toan.
+     * Thuat toan khac lp-backshift giu nguyen chuoi params.
      */
     public static String augment(String algo, String params) {
         if (!"lp-backshift".equals(algo)) {
@@ -36,7 +36,7 @@ public final class CsvParams {
         return params + ";" + KEY + "=" + LinearProbingBackshiftTable.BACKSHIFT_METHOD;
     }
 
-    /** Trả về giá trị của một tham số trong chuỗi params, hoặc null nếu không có. */
+    /** Tra ve gia tri cua mot tham so trong chuoi params, hoac null neu khong co. */
     public static String value(String params, String key) {
         if (params == null || key == null) {
             return null;

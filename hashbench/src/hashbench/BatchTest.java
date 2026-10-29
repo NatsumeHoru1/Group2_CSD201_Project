@@ -14,7 +14,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Kiểm thử ma trận batch RQ1, tính xen kẽ, tính duy nhất và tính năng resume của batch. */
+/** Kiem thu ma tran batch RQ1, tinh xen ke, tinh duy nhat va tinh nang resume cua batch. */
 public final class BatchTest {
     private BatchTest() {
     }
@@ -31,7 +31,7 @@ public final class BatchTest {
         }
     }
 
-    /** (i) Kiểm tra sinh 200 dòng, phân bổ 144/48/8, proc_id duy nhất, và không có 2 dòng liên tiếp cùng (cấu hình, thuật toán). */
+    /** (i) Kiem tra sinh 200 dong, phan bo 144/48/8, proc_id duy nhat, va khong co 2 dong lien tiep cung (cau hinh, thuat toan). */
     private static void testMatrixGeneration() {
         List<String> rawLines = Batch.generateRq1BatchLines();
         List<RunConfig> configs = new ArrayList<RunConfig>();
@@ -53,18 +53,18 @@ public final class BatchTest {
             }
         }
 
-        assertEquals(200, configs.size(), "tổng số cấu hình trong ma trận");
-        assertEquals(144, timeCount, "số dòng thời gian RQ1");
-        assertEquals(48, countCount, "số dòng count RQ1");
-        assertEquals(8, clustCount, "số dòng dồn cụm rq1clust");
-        assertTrue(Double.isInfinite(configs.get(0).tau), "tau batch mặc định là inf");
-        assertEquals(0.0, configs.get(0).load, "load batch mặc định là 0");
-        assertEquals(0, configs.get(0).c, "c batch mặc định là 0");
+        assertEquals(200, configs.size(), "tong so cau hinh trong ma tran");
+        assertEquals(144, timeCount, "so dong thoi gian RQ1");
+        assertEquals(48, countCount, "so dong count RQ1");
+        assertEquals(8, clustCount, "so dong don cum rq1clust");
+        assertTrue(Double.isInfinite(configs.get(0).tau), "tau batch mac dinh la inf");
+        assertEquals(0.0, configs.get(0).load, "load batch mac dinh la 0");
+        assertEquals(0, configs.get(0).c, "c batch mac dinh la 0");
 
         Set<String> procIds = new HashSet<String>();
         for (RunConfig cfg : configs) {
             assertTrue(procIds.add(cfg.procId()),
-                    "proc_id phải duy nhất: " + cfg.procId());
+                    "proc_id phai duy nhat: " + cfg.procId());
         }
         for (int i = 0; i < configs.size() - 1; i++) {
             RunConfig first = configs.get(i);
@@ -74,12 +74,12 @@ public final class BatchTest {
                     && Double.compare(first.alpha, second.alpha) == 0
                     && first.dataset.equals(second.dataset);
             assertTrue(!(sameAlgorithm && sameConfig),
-                    "Hai dòng liên tiếp không được cùng (cấu hình, thuật toán) tại dòng "
+                    "Hai dong lien tiep khong duoc cung (cau hinh, thuat toan) tai dong "
                     + (i + 1) + ": " + first.algo + " p=" + first.p);
         }
     }
 
-    /** Kiểm tra ma trận RQ2/RQ3, số lượt, proc_id, mức tải và thứ tự xen kẽ. */
+    /** Kiem tra ma tran RQ2/RQ3, so luot, proc_id, muc tai va thu tu xen ke. */
     private static void testRq23MatrixGeneration() {
             List<RunConfig> configs = new ArrayList<RunConfig>();
             for (String line : Batch.generateRq23BatchLines()) {
@@ -88,7 +88,7 @@ public final class BatchTest {
                     configs.add(config);
                 }
             }
-            assertEquals(360, configs.size(), "tổng số cấu hình RQ2/RQ3");
+            assertEquals(360, configs.size(), "tong so cau hinh RQ2/RQ3");
 
             Set<String> procIds = new HashSet<String>();
             int rq2Count = 0;
@@ -99,33 +99,33 @@ public final class BatchTest {
             for (int i = 0; i < configs.size(); i++) {
                 RunConfig config = configs.get(i);
                 assertTrue(procIds.add(config.procId()),
-                        "proc_id RQ2/RQ3 phải duy nhất: " + config.procId());
+                        "proc_id RQ2/RQ3 phai duy nhat: " + config.procId());
                 assertEquals(20, config.p, "p RQ2/RQ3");
                 assertEquals(1000000L, config.queries, "queries RQ2/RQ3");
                 if (config.countMode) {
                     countGroupStarted = true;
                     countCount++;
                 } else {
-                    assertTrue(!countGroupStarted, "mọi lượt thời gian phải đứng trước lượt count");
+                    assertTrue(!countGroupStarted, "moi luot thoi gian phai dung truoc luot count");
                     timeCount++;
                 }
                 if ("rq2".equals(config.dataset)) {
                     rq2Count++;
-                    assertEquals("lp-tomb", config.algo, "RQ2 chỉ dùng lp-tomb");
+                    assertEquals("lp-tomb", config.algo, "RQ2 chi dung lp-tomb");
                     assertEquals(0.5, config.load, "load RQ2");
-                    assertTrue(Double.isInfinite(config.tau), "tau RQ2 là inf");
+                    assertTrue(Double.isInfinite(config.tau), "tau RQ2 la inf");
                 } else {
                     rq3Count++;
                     assertTrue(config.load == 0.5 || config.load == 0.8,
-                            "load RQ3 phải là 0.5 hoặc 0.8");
+                            "load RQ3 phai la 0.5 hoac 0.8");
                     assertTrue(config.c == 1048576 || config.c == 2097152
-                            || config.c == 4194304, "C RQ3 không hợp lệ");
+                            || config.c == 4194304, "C RQ3 khong hop le");
                     if ("lp-tomb".equals(config.algo)) {
                         assertEquals(config.load == 0.5 ? 0.2 : 0.1, config.tau,
                                 "tau lp-tomb theo load");
                     } else {
                         assertTrue(Double.isInfinite(config.tau),
-                                "tau thuật toán không lp-tomb là inf");
+                                "tau thuat toan khong lp-tomb la inf");
                     }
                 }
                 if (i > 0) {
@@ -139,13 +139,13 @@ public final class BatchTest {
                             && previous.countMode == config.countMode;
                     assertTrue(!(sameConfiguration && previous.algo.equals(config.algo)
                             && previous.variant.equals(config.variant)),
-                            "không được lặp config/algorithm liền kề");
+                            "khong duoc lap config/algorithm lien ke");
                 }
             }
-            assertEquals(72, rq2Count, "số dòng RQ2");
-            assertEquals(288, rq3Count, "số dòng RQ3");
-            assertEquals(270, timeCount, "số lượt thời gian");
-            assertEquals(90, countCount, "số lượt count");
+            assertEquals(72, rq2Count, "so dong RQ2");
+            assertEquals(288, rq3Count, "so dong RQ3");
+            assertEquals(270, timeCount, "so luot thoi gian");
+            assertEquals(90, countCount, "so luot count");
             verifyRq3AlgorithmOrder(configs, 54, 216);
             verifyRq3AlgorithmOrder(configs, 288, 72);
         }
@@ -163,17 +163,17 @@ public final class BatchTest {
                 String[] variants = reverse ? reversedVariants : normalVariants;
                 for (int i = 0; i < 4; i++) {
                     RunConfig config = configs.get(start + offset + i);
-                    assertEquals(algorithms[i], config.algo, "thứ tự thuật toán RQ3");
-                    assertEquals(variants[i], config.variant, "thứ tự variant RQ3");
-                    assertEquals(first.load, config.load, "block RQ3 phải cùng load");
-                    assertEquals(first.c, config.c, "block RQ3 phải cùng C");
-                    assertEquals(first.seed, config.seed, "block RQ3 phải cùng seed");
-                    assertEquals(first.repeat, config.repeat, "block RQ3 phải cùng repeat");
+                    assertEquals(algorithms[i], config.algo, "thu tu thuat toan RQ3");
+                    assertEquals(variants[i], config.variant, "thu tu variant RQ3");
+                    assertEquals(first.load, config.load, "block RQ3 phai cung load");
+                    assertEquals(first.c, config.c, "block RQ3 phai cung C");
+                    assertEquals(first.seed, config.seed, "block RQ3 phai cung seed");
+                    assertEquals(first.repeat, config.repeat, "block RQ3 phai cung repeat");
                 }
             }
         }
 
-    /** (ii) Chạy batch nhỏ 2 dòng p=10 queries=20000 hai lần với --resume. */
+    /** (ii) Chay batch nho 2 dong p=10 queries=20000 hai lan voi --resume. */
     private static void testBatchExecutionAndResume(Path root) throws Exception {
         Path batchFile = root.resolve("mini_batch.txt");
         Path csvFile = root.resolve("mini_results.csv");
@@ -186,30 +186,30 @@ public final class BatchTest {
             bw.newLine();
         }
 
-        // Chạy lần 1: cả 2 dòng đều RUN
+        // Chay lan 1: ca 2 dong deu RUN
         Batch.runBatch(batchFile, csvFile, logFile, "2g", 30, "dev", false, -1);
         List<String[]> rows1 = readCsv(csvFile);
-        // Header + 3 pha sc + 3 pha lp-tomb = 7 dòng
-        assertEquals(7, rows1.size(), "số dòng CSV sau lần 1");
+        // Header + 3 pha sc + 3 pha lp-tomb = 7 dong
+        assertEquals(7, rows1.size(), "so dong CSV sau lan 1");
 
-        // Chạy lần 2 với cùng file CSV: cả 2 dòng phải SKIP
+        // Chay lan 2 voi cung file CSV: ca 2 dong phai SKIP
         Batch.runBatch(batchFile, csvFile, logFile, "2g", 30, "dev", false, -1);
         List<String[]> rows2 = readCsv(csvFile);
-        assertEquals(rows1.size(), rows2.size(), "CSV không được thêm dòng mới khi resume");
+        assertEquals(rows1.size(), rows2.size(), "CSV khong duoc them dong moi khi resume");
 
-        // Kiểm tra log file
+        // Kiem tra log file
         List<String> logLines = Files.readAllLines(logFile, StandardCharsets.UTF_8);
-        assertEquals(4, logLines.size(), "file log phải có 4 dòng (2 RUN + 2 SKIP)");
-        assertTrue(logLines.get(0).contains("\tRUN\t"), "dòng log 1 là RUN");
-        assertTrue(logLines.get(1).contains("\tRUN\t"), "dòng log 2 là RUN");
-        assertTrue(logLines.get(2).contains("\tSKIP\t"), "dòng log 3 là SKIP");
-        assertTrue(logLines.get(3).contains("\tSKIP\t"), "dòng log 4 là SKIP");
+        assertEquals(4, logLines.size(), "file log phai co 4 dong (2 RUN + 2 SKIP)");
+        assertTrue(logLines.get(0).contains("\tRUN\t"), "dong log 1 la RUN");
+        assertTrue(logLines.get(1).contains("\tRUN\t"), "dong log 2 la RUN");
+        assertTrue(logLines.get(2).contains("\tSKIP\t"), "dong log 3 la SKIP");
+        assertTrue(logLines.get(3).contains("\tSKIP\t"), "dong log 4 la SKIP");
 
         Batch.runBatch(batchFile, csvFile, logFile, "2g", 30, "dev", false, 1);
         logLines = Files.readAllLines(logFile, StandardCharsets.UTF_8);
-        assertEquals(5, logLines.size(), "--limit 1 phải xử lý đúng một cấu hình SKIP");
+        assertEquals(5, logLines.size(), "--limit 1 phai xu ly dung mot cau hinh SKIP");
         assertTrue(logLines.get(4).contains("\tSKIP\t"),
-                "dòng log cuối của lượt --limit 1 là SKIP");
+                "dong log cuoi cua luot --limit 1 la SKIP");
     }
 
     private static List<String[]> readCsv(Path file) throws IOException {
@@ -246,7 +246,7 @@ public final class BatchTest {
 
     private static void assertEquals(Object exp, Object act, String msg) {
         if (exp == null ? act != null : !exp.equals(act)) {
-            throw new AssertionError(msg + ": mong đợi " + exp + ", nhận " + act);
+            throw new AssertionError(msg + ": mong doi " + exp + ", nhan " + act);
         }
     }
 }

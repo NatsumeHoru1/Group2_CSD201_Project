@@ -15,46 +15,46 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Kiểm tra các file CSV do runner ghi ra theo lược đồ 32 cột của CsvSchema.
+ * Kiem tra cac file CSV do runner ghi ra theo luoc do 32 cot cua CsvSchema.
  *
- * Bất biến được kiểm tra (theo spec_notes.txt mục A, B, D và CONVENTIONS.md):
- *  1. Header đúng thứ tự và đủ 32 cột; mọi hàng cũng có đúng 32 ô.
- *  2. status thuộc đúng tập {ok, timeout, crash, oom, wrong}.
- *  3. Lượt không ok thì elapsed_ms phải trống; lượt ok thì elapsed_ms phải là
- *     số thập phân có đúng 3 chữ số lẻ.
- *  4. phase_note = not_started chỉ đi kèm status timeout/crash/oom.
- *  5. run_id không trùng trong cùng một file và phải có dạng proc_id + "_" + phase.
- *  6. Không có dòng nào có status = wrong (đây là lỗi kết quả, phải báo).
- *  7. output_check phải bằng nhau giữa các thuật toán cùng cấu hình, load, C, seed và phase.
- *  8. RQ1 đủ ba pha; RQ2/RQ3 đủ các pha theo proc_id.
- *  9. Các cột số phải parse được; cột chưa đo được thì để trống, không ghi số 0.
+ * Bat bien duoc kiem tra (theo spec_notes.txt muc A, B, D va CONVENTIONS.md):
+ *  1. Header dung thu tu va du 32 cot; moi hang cung co dung 32 o.
+ *  2. status thuoc dung tap {ok, timeout, crash, oom, wrong}.
+ *  3. Luot khong ok thi elapsed_ms phai trong; luot ok thi elapsed_ms phai la
+ *     so thap phan co dung 3 chu so le.
+ *  4. phase_note = not_started chi di kem status timeout/crash/oom.
+ *  5. run_id khong trung trong cung mot file va phai co dang proc_id + "_" + phase.
+ *  6. Khong co dong nao co status = wrong (day la loi ket qua, phai bao).
+ *  7. output_check phai bang nhau giua cac thuat toan cung cau hinh, load, C, seed va phase.
+ *  8. RQ1 du ba pha; RQ2/RQ3 du cac pha theo proc_id.
+ *  9. Cac cot so phai parse duoc; cot chua do duoc thi de trong, khong ghi so 0.
  *
- * Lớp này chỉ đọc file, không sửa dòng nào trong CSV.
+ * Lop nay chi doc file, khong sua dong nao trong CSV.
  *
- * Phụ trách: TV6.
+ * Phu trach: TV6.
  */
 public final class CsvValidator {
-    /** Các trạng thái hợp lệ theo quy định chung mục 6.7. */
+    /** Cac trang thai hop le theo quy dinh chung muc 6.7. */
     public static final Set<String> ALLOWED_STATUS = new HashSet<String>(Arrays.asList(
             "ok", "timeout", "crash", "oom", "wrong"));
 
-    /** Các tên thuật toán theo Bảng 2 và Bảng 3 của đề 2. */
+    /** Cac ten thuat toan theo Bang 2 va Bang 3 cua de 2. */
     public static final Set<String> ALLOWED_ALGORITHM = new HashSet<String>(Arrays.asList(
             "sc", "lp-tomb", "lp-backshift", "rh"));
 
-    /** Các biến thể hợp lệ. */
+    /** Cac bien the hop le. */
     public static final Set<String> ALLOWED_VARIANT = new HashSet<String>(Arrays.asList(
             "base", "noearly"));
 
-    /** Các mã dataset theo E3. */
+    /** Cac ma dataset theo E3. */
     public static final Set<String> ALLOWED_DATASET = new HashSet<String>(Arrays.asList(
             "rq1a", "rq1b", "rq1clust", "rq2", "rq3", "test"));
 
-    /** Các pha theo E2. */
+    /** Cac pha theo E2. */
     public static final Set<String> ALLOWED_PHASE = new HashSet<String>(Arrays.asList(
             "build", "present", "absent", "workload", "ctl_present", "ctl_absent"));
 
-    /** Các cột phải là số nguyên không âm nếu có giá trị. */
+    /** Cac cot phai la so nguyen khong am neu co gia tri. */
     private static final int[] NON_NEGATIVE_LONG_COLUMNS = {
         CsvSchema.N_INDEX,
         CsvSchema.SEED_INDEX,
@@ -64,7 +64,7 @@ public final class CsvValidator {
         CsvSchema.OPS_COUNT_INDEX,
     };
 
-    /** Các cột phải là số thập phân không âm nếu có giá trị. */
+    /** Cac cot phai la so thap phan khong am neu co gia tri. */
     private static final int[] NON_NEGATIVE_DOUBLE_COLUMNS = {
         CsvSchema.ELAPSED_MS_INDEX,
         CsvSchema.WALL_MS_INDEX,
@@ -104,7 +104,7 @@ public final class CsvValidator {
         return sb.toString();
     }
 
-    /** Một vấn đề phát hiện được trong CSV. */
+    /** Mot van de phat hien duoc trong CSV. */
     public static final class Issue {
         public final int line;
         public final String message;
@@ -120,7 +120,7 @@ public final class CsvValidator {
         }
     }
 
-    /** Kết quả kiểm tra cho một file CSV. */
+    /** Ket qua kiem tra cho mot file CSV. */
     public static final class Report {
         public final Path file;
         public final List<Issue> issues;
@@ -132,12 +132,12 @@ public final class CsvValidator {
             this.dataRows = dataRows;
         }
 
-        /** Trả về true khi không có vấn đề nào. */
+        /** Tra ve true khi khong co van de nao. */
         public boolean isValid() {
             return issues.isEmpty();
         }
 
-        /** In báo cáo ra màn hình. */
+        /** In bao cao ra man hinh. */
         public void print() {
             System.out.println("=== " + file + " (" + dataRows + " dong du lieu) ===");
             if (issues.isEmpty()) {
@@ -152,14 +152,14 @@ public final class CsvValidator {
     }
 
     /**
-     * Kiểm tra một file CSV và trả về báo cáo (giữ nguyên mặc định không lọc dòng trùng).
+     * Kiem tra mot file CSV va tra ve bao cao (giu nguyen mac dinh khong loc dong trung).
      */
     public static Report validate(Path file, boolean checkCrossAlgorithm) throws IOException {
         return validate(file, checkCrossAlgorithm, false);
     }
 
     /**
-     * Kiểm tra một file CSV và trả về báo cáo. Khi latest=true, chỉ giữ dòng cuối cùng của mỗi run_id.
+     * Kiem tra mot file CSV va tra ve bao cao. Khi latest=true, chi giu dong cuoi cung cua moi run_id.
      */
     public static Report validate(Path file, boolean checkCrossAlgorithm, boolean latest) throws IOException {
         List<Issue> issues = new ArrayList<Issue>();
@@ -190,7 +190,7 @@ public final class CsvValidator {
         return new Report(file, issues, dataRows.size());
     }
 
-    /** Đọc CSV và tách ô theo luật CSV, báo lỗi nếu dòng không đủ 32 ô. */
+    /** Doc CSV va tach o theo luat CSV, bao loi neu dong khong du 32 o. */
     private static List<String[]> readRows(Path file, List<Issue> issues) throws IOException {
         List<String[]> rows = new ArrayList<String[]>();
         try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
@@ -212,7 +212,7 @@ public final class CsvValidator {
         return rows;
     }
 
-    /** Tách một dòng CSV theo luật dấu phẩy và dấu nháy kép. */
+    /** Tach mot dong CSV theo luat dau phay va dau nhay kep. */
     static String[] splitCsvLine(String line) {
         List<String> cells = new ArrayList<String>();
         StringBuilder current = new StringBuilder();
@@ -243,7 +243,7 @@ public final class CsvValidator {
         return cells.toArray(new String[cells.size()]);
     }
 
-    /** Kiểm tra header có đúng tên và đúng thứ tự cột theo CsvSchema. */
+    /** Kiem tra header co dung ten va dung thu tu cot theo CsvSchema. */
     private static void checkHeader(String[] header, List<Issue> issues) {
         if (header.length != CsvSchema.COLUMNS.length) {
             issues.add(new Issue(1, "header co " + header.length + " cot, can "
@@ -258,14 +258,14 @@ public final class CsvValidator {
         }
     }
 
-    /** Kiểm tra từng dòng dữ liệu theo các bất biến của đề. */
+    /** Kiem tra tung dong du lieu theo cac bat bien cua de. */
     private static void checkRows(List<String[]> rows, List<Issue> issues) {
         Set<String> runIds = new HashSet<String>();
         for (int i = 0; i < rows.size(); i++) {
-            int lineNumber = i + 2; // +1 cho header, +1 cho đánh số 1-based
+            int lineNumber = i + 2; // +1 cho header, +1 cho danh so 1-based
             String[] row = rows.get(i);
             if (row.length != CsvSchema.COLUMNS.length) {
-                continue; // đã báo ở readRows
+                continue; // da bao o readRows
             }
             String runId = row[CsvSchema.RUN_ID_INDEX];
             if (runId.length() == 0) {
@@ -340,9 +340,9 @@ public final class CsvValidator {
     }
 
     /**
-     * Kiểm tra tham số riêng bắt buộc của từng thuật toán.
-     * Với lp-backshift, đề 2 yêu cầu ghi rõ đã dùng Algorithm R của Knuth hay
-     * cách chèn lại cụm của Sedgewick-Wayne, nên cột params phải có khoá backshift.
+     * Kiem tra tham so rieng bat buoc cua tung thuat toan.
+     * Voi lp-backshift, de 2 yeu cau ghi ro da dung Algorithm R cua Knuth hay
+     * cach chen lai cum cua Sedgewick-Wayne, nen cot params phai co khoa backshift.
      */
     private static void checkAlgorithmParams(String[] row, int lineNumber, List<Issue> issues) {
         String algo = row[CsvSchema.ALGORITHM_INDEX];
@@ -358,7 +358,7 @@ public final class CsvValidator {
         }
     }
 
-    /** Kiểm tra các cột số: rỗng hoặc phải parse được và không âm. */
+    /** Kiem tra cac cot so: rong hoac phai parse duoc va khong am. */
     private static void checkNumericColumns(String[] row, int lineNumber, List<Issue> issues) {
         for (int index : NON_NEGATIVE_LONG_COLUMNS) {
             String value = row[index];
@@ -398,7 +398,7 @@ public final class CsvValidator {
         }
     }
 
-    /** Kiểm tra input_sha256 khi có giá trị phải là 64 ký tự hex. */
+    /** Kiem tra input_sha256 khi co gia tri phai la 64 ky tu hex. */
     private static void checkInputSha256(String[] row, int lineNumber, List<Issue> issues) {
         String sha = row[CsvSchema.INPUT_SHA256_INDEX];
         if (sha.length() == 0) {
@@ -410,8 +410,8 @@ public final class CsvValidator {
     }
 
     /**
-     * So sánh output_check theo dataset, p, load, C, queries và seed.
-     * Đây là bất biến quan trọng nhất: cùng dữ liệu thì kết quả get phải giống nhau.
+     * So sanh output_check theo dataset, p, load, C, queries va seed.
+     * Day la bat bien quan trong nhat: cung du lieu thi ket qua get phai giong nhau.
      */
     private static void checkOutputCheckAgreement(List<String[]> rows, List<Issue> issues) {
         Map<String, List<String[]>> byGroup = new LinkedHashMap<String, List<String[]>>();
@@ -510,8 +510,8 @@ public final class CsvValidator {
     }
 
     /**
-     * Kiểm tra mỗi nhóm (algorithm, variant, cấu hình, seed) của RQ1 có đủ ba pha.
-     * Nhóm thiếu pha thường do tiến trình chết sớm, nên báo để người đo biết.
+     * Kiem tra moi nhom (algorithm, variant, cau hinh, seed) cua RQ1 co du ba pha.
+     * Nhom thieu pha thuong do tien trinh chet som, nen bao de nguoi do biet.
      */
     private static void checkPhaseCoverage(List<String[]> rows, List<Issue> issues) {
         Map<String, Set<String>> phasesByGroup = new HashMap<String, Set<String>>();
@@ -565,11 +565,11 @@ public final class CsvValidator {
     }
 
     /**
-     * Kiểm tra độ dao động giữa các lượt cùng một cấu hình (P3.4).
+     * Kiem tra do dao dong giua cac luot cung mot cau hinh (P3.4).
      *
-     * Theo C4 và quy định 10.1, một lượt chạy lại phải nằm trong khoảng
-     * 0,5 - 2 lần median. Lượt lệch khỏi khoảng này là dấu hiệu nhiễu máy đo
-     * hoặc lỗi, nên báo để người đo kiểm tra lại.
+     * Theo C4 va quy dinh 10.1, mot luot chay lai phai nam trong khoang
+     * 0,5 - 2 lan median. Luot lech khoi khoang nay la dau hieu nhieu may do
+     * hoac loi, nen bao de nguoi do kiem tra lai.
      */
     private static void checkRepeatVariance(List<String[]> rows, List<Issue> issues) {
         Map<String, List<double[]>> elapsedByGroup =
@@ -602,7 +602,7 @@ public final class CsvValidator {
         for (Map.Entry<String, List<double[]>> entry : elapsedByGroup.entrySet()) {
             List<double[]> samples = entry.getValue();
             if (samples.size() < 2) {
-                continue; // chỉ một lượt thì không có gì để so
+                continue; // chi mot luot thi khong co gi de so
             }
             double[] sorted = new double[samples.size()];
             for (int i = 0; i < samples.size(); i++) {
@@ -627,7 +627,7 @@ public final class CsvValidator {
         }
     }
 
-    /** Điểm vào CLI: kiểm tra các file CSV được truyền vào. */
+    /** Diem vao CLI: kiem tra cac file CSV duoc truyen vao. */
     public static void main(String[] args) throws IOException {
         boolean latest = false;
         List<String> files = new ArrayList<String>();

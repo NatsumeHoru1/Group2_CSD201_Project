@@ -1,25 +1,25 @@
 package hashbench;
 
-/** Cung cấp các thống kê nội bộ của một bảng băm. */
+/** Cung cap cac thong ke noi bo cua mot bang bam. */
 public interface HashStats {
-    /** Trả về số ô tombstone. */
+    /** Tra ve so o tombstone. */
     int tombCount();
 
-    /** Trả về số ô trống. */
+    /** Tra ve so o trong. */
     int emptyCount();
 
-    /** Trả về khoảng cách tìm kiếm trung bình. */
+    /** Tra ve khoang cach tim kiem trung binh. */
     double dibMean();
 
-    /** Trả về khoảng cách tìm kiếm lớn nhất. */
+    /** Tra ve khoang cach tim kiem lon nhat. */
     int dibMax();
 
-    /** Trả về số lần xây dựng lại bảng. */
+    /** Tra ve so lan xay dung lai bang. */
     long rebuildCount();
 
-    /** Trả về tổng thời gian xây dựng lại, tính bằng nano giây. */
+    /** Tra ve tong thoi gian xay dung lai, tinh bang nano giay. */
     long rebuildNanos();
 
-    /** Trả về tổng số lần thăm dò. */
+    /** Tra ve tong so lan tham do. */
     long probeCount();
 }

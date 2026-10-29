@@ -3,7 +3,7 @@ package hashbench;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Lưu cấu hình benchmark cùng các tùy chọn chỉ dùng cho test tiến trình. */
+/** Luu cau hinh benchmark cung cac tuy chon chi dung cho test tien trinh. */
 public final class RunConfig {
     public final String rq;
     public final String algo;
@@ -31,14 +31,14 @@ public final class RunConfig {
     public final String phaseNames;
     public final boolean profile;
 
-    /** Tạo cấu hình test cũ với variant base và heap mặc định 2g. */
+    /** Tao cau hinh test cu voi variant base va heap mac dinh 2g. */
     public RunConfig(String rq, String algo, int p, double alpha, int c,
                      double tau, long seed, int repeat) {
         this(rq, algo, "base", "test", 0L, p, alpha, c, tau, 0.0, 0L,
                 seed, repeat, "2g", "", 60, false);
     }
 
-    /** Tạo cấu hình benchmark với toàn bộ trường có thể ghi vào CSV. */
+    /** Tao cau hinh benchmark voi toan bo truong co the ghi vao CSV. */
     public RunConfig(String rq, String algo, String variant, String dataset, long n,
                      int p, double alpha, int c, double tau, double load, long queries,
                      long seed, int repeat, String xmx, String machineId,
@@ -47,7 +47,7 @@ public final class RunConfig {
                 repeat, xmx, machineId, timeoutSec, countMode, null);
     }
 
-    /** Tạo cấu hình benchmark với danh sách pha tùy chọn. */
+    /** Tao cau hinh benchmark voi danh sach pha tuy chon. */
     public RunConfig(String rq, String algo, String variant, String dataset, long n,
                      int p, double alpha, int c, double tau, double load, long queries,
                      long seed, int repeat, String xmx, String machineId,
@@ -57,7 +57,7 @@ public final class RunConfig {
                 phaseNames, false);
     }
 
-    /** Khởi tạo và xác thực cấu hình; các hook cuối chỉ phục vụ kiểm thử tiến trình. */
+    /** Khoi tao va xac thuc cau hinh; cac hook cuoi chi phuc vu kiem thu tien trinh. */
     private RunConfig(String rq, String algo, String variant, String dataset, long n,
                       int p, double alpha, int c, double tau, double load, long queries,
                       long seed, int repeat, String xmx, String machineId,
@@ -65,38 +65,38 @@ public final class RunConfig {
                       long sleepSeconds, String exitPhase, int exitCode, String oomPhase,
                       String phaseNames, boolean profile) {
         if (rq == null || rq.length() == 0 || dataset == null || dataset.length() == 0) {
-            throw new IllegalArgumentException("rq và dataset không được rỗng");
+            throw new IllegalArgumentException("rq va dataset khong duoc rong");
         }
         if (!"sc".equals(algo) && !"lp-tomb".equals(algo)
                 && !"lp-backshift".equals(algo) && !"rh".equals(algo)) {
-            throw new IllegalArgumentException("Algorithm không hợp lệ: " + algo);
+            throw new IllegalArgumentException("Algorithm khong hop le: " + algo);
         }
         if (!"base".equals(variant) && !"noearly".equals(variant)) {
-            throw new IllegalArgumentException("Variant không hợp lệ: " + variant);
+            throw new IllegalArgumentException("Variant khong hop le: " + variant);
         }
         if ("noearly".equals(variant) && !"rh".equals(algo)) {
-            throw new IllegalArgumentException("Variant noearly chỉ áp dụng cho rh");
+            throw new IllegalArgumentException("Variant noearly chi ap dung cho rh");
         }
         if (("rq2".equals(dataset) || "rq3".equals(dataset))
                 && (p < 1 || !isFinite(load) || load <= 0.0 || load > 1.0)) {
-            throw new IllegalArgumentException("rq2/rq3 yêu cầu p trong [1,30] và load trong (0,1]");
+            throw new IllegalArgumentException("rq2/rq3 yeu cau p trong [1,30] va load trong (0,1]");
         }
         if (p < 0 || p > 30 || n < 0L || c < 0 || queries < 0L || repeat < 1) {
-            throw new IllegalArgumentException("p, n, queries hoặc repeat không hợp lệ");
+            throw new IllegalArgumentException("p, n, queries hoac repeat khong hop le");
         }
         if (!isFinite(alpha) || !isFinite(load) || Double.isNaN(tau) || tau < 0.0) {
             throw new IllegalArgumentException(
-                    "alpha và load phải hữu hạn; tau phải không âm và không phải NaN");
+                    "alpha va load phai huu han; tau phai khong am va khong phai NaN");
         }
         if (xmx == null || !xmx.matches("[1-9][0-9]*[kKmMgG]?")) {
-            throw new IllegalArgumentException("xmx phải có dạng số k/m/g hợp lệ");
+            throw new IllegalArgumentException("xmx phai co dang so k/m/g hop le");
         }
         if (timeoutSec <= 0) {
-            throw new IllegalArgumentException("timeoutSec phải lớn hơn 0");
+            throw new IllegalArgumentException("timeoutSec phai lon hon 0");
         }
         if (sleepPhase != null && (sleepSeconds < 0L
                 || sleepSeconds > Long.MAX_VALUE / 1000L)) {
-            throw new IllegalArgumentException("sleepSeconds không hợp lệ");
+            throw new IllegalArgumentException("sleepSeconds khong hop le");
         }
         this.rq = rq;
         this.algo = algo;
@@ -129,32 +129,32 @@ public final class RunConfig {
         this.profile = profile;
     }
 
-    /** Tạo bản sao bật cờ count cho tiến trình con. */
+    /** Tao ban sao bat co count cho tien trinh con. */
     public RunConfig withCountMode(boolean enabled) {
         return copy(enabled, sleepPhase, sleepSeconds, exitPhase, exitCode, oomPhase, profile);
     }
 
-    /** Tạo bản sao bật cờ profile cho tiến trình con. */
+    /** Tao ban sao bat co profile cho tien trinh con. */
     public RunConfig withProfile(boolean profile) {
         return copy(countMode, sleepPhase, sleepSeconds, exitPhase, exitCode, oomPhase, profile);
     }
 
-    /** Tạo bản sao với hook sleep chỉ dùng để kiểm tra timeout. */
+    /** Tao ban sao voi hook sleep chi dung de kiem tra timeout. */
     public RunConfig withSleepPhase(String phase, long seconds) {
         return copy(countMode, phase, seconds, exitPhase, exitCode, oomPhase, profile);
     }
 
-    /** Tạo bản sao với hook exit chỉ dùng để kiểm tra trạng thái crash. */
+    /** Tao ban sao voi hook exit chi dung de kiem tra trang thai crash. */
     public RunConfig withExitPhase(String phase, int code) {
         return copy(countMode, sleepPhase, sleepSeconds, phase, code, oomPhase, profile);
     }
 
-    /** Tạo bản sao với hook OutOfMemoryError chỉ dùng để kiểm tra trạng thái oom. */
+    /** Tao ban sao voi hook OutOfMemoryError chi dung de kiem tra trang thai oom. */
     public RunConfig withOomPhase(String phase) {
         return copy(countMode, sleepPhase, sleepSeconds, exitPhase, exitCode, phase, profile);
     }
 
-    /** Sao chép các trường cấu hình trong khi thay đổi duy nhất các tùy chọn test. */
+    /** Sao chep cac truong cau hinh trong khi thay doi duy nhat cac tuy chon test. */
     private RunConfig copy(boolean newCountMode, String newSleepPhase, long newSleepSeconds,
             String newExitPhase, int newExitCode, String newOomPhase, boolean newProfile) {
         return new RunConfig(rq, algo, variant, dataset, n, p, alpha, c, tau, load,
@@ -163,12 +163,12 @@ public final class RunConfig {
                 phaseNames, newProfile);
     }
 
-    /** Tính M = 2^p theo dung lượng bảng. */
+    /** Tinh M = 2^p theo dung luong bang. */
     public int capacity() {
         return 1 << p;
     }
 
-    /** Trả về danh sách pha giả theo đúng thứ tự của test runner hiện tại. */
+    /** Tra ve danh sach pha gia theo dung thu tu cua test runner hien tai. */
     public static List<String> defaultPhases() {
         List<String> phases = new ArrayList<String>();
         phases.add("build");
@@ -178,12 +178,12 @@ public final class RunConfig {
         return phases;
     }
 
-    /** Chọn pha chạy theo dataset; dataset test giữ control để tương thích test stub. */
+    /** Chon pha chay theo dataset; dataset test giu control de tuong thich test stub. */
     public static List<String> phasesForDataset(String dataset) {
         return phasesForDataset(dataset, null);
     }
 
-    /** Trả về danh sách pha do cấu hình chỉ định hoặc mặc định theo dataset. */
+    /** Tra ve danh sach pha do cau hinh chi dinh hoac mac dinh theo dataset. */
     public static List<String> phasesForDataset(String dataset, String configuredPhases) {
         List<String> phases = new ArrayList<String>();
         if ("rq1a".equals(dataset) || "rq1b".equals(dataset) || "rq1clust".equals(dataset)) {
@@ -221,12 +221,12 @@ public final class RunConfig {
                 addConfiguredPhases(phases, configuredPhases, false, true);
             }
         } else {
-            throw new IllegalArgumentException("Dataset chưa hỗ trợ: " + dataset);
+            throw new IllegalArgumentException("Dataset chua ho tro: " + dataset);
         }
         return phases;
     }
 
-    /** Tách và kiểm tra pha CLI để không nhận pha không triển khai. */
+    /** Tach va kiem tra pha CLI de khong nhan pha khong trien khai. */
     private static void addConfiguredPhases(List<String> phases, String configuredPhases,
             boolean allowControl) {
         addConfiguredPhases(phases, configuredPhases, allowControl, false);
@@ -241,16 +241,16 @@ public final class RunConfig {
                     && !(allowWorkloadPhases && "workload".equals(name))
                     && !(allowControl && ("ctl_present".equals(name)
                             || "ctl_absent".equals(name)))) {
-                throw new IllegalArgumentException("Pha chưa hỗ trợ: " + name);
+                throw new IllegalArgumentException("Pha chua ho tro: " + name);
             }
             phases.add(name);
         }
         if (phases.isEmpty()) {
-            throw new IllegalArgumentException("Danh sách pha không được rỗng");
+            throw new IllegalArgumentException("Danh sach pha khong duoc rong");
         }
     }
 
-    /** Dựng chuỗi key=value ổn định, không phụ thuộc locale của máy. */
+    /** Dung chuoi key=value on dinh, khong phu thuoc locale cua may. */
     private static String buildParams(int p, double alpha, int c, double tau,
             double load, long queries) {
         return "p=" + p + ";alpha=" + Double.toString(alpha)
@@ -259,12 +259,12 @@ public final class RunConfig {
                 + ";load=" + Double.toString(load) + ";queries=" + queries;
     }
 
-    /** Kiểm tra số double hữu hạn theo API có sẵn trong Java 8. */
+    /** Kiem tra so double huu han theo API co san trong Java 8. */
     private static boolean isFinite(double value) {
         return !Double.isNaN(value) && !Double.isInfinite(value);
     }
 
-    /** Sinh proc_id tất định, chỉ chứa [A-Za-z0-9_-]. */
+    /** Sinh proc_id tat dinh, chi chua [A-Za-z0-9_-]. */
     public String procId() {
         StringBuilder sb = new StringBuilder();
         sb.append(rq).append('_').append(algo).append('_').append(variant).append('_').append(dataset);
@@ -283,7 +283,7 @@ public final class RunConfig {
         return sb.toString();
     }
 
-    /** Định dạng double không dấu chấm: 0.75 -> 0p75, inf -> inf. */
+    /** Dinh dang double khong dau cham: 0.75 -> 0p75, inf -> inf. */
     public static String formatDoubleNoDot(double v) {
         if (Double.isInfinite(v)) {
             return "inf";

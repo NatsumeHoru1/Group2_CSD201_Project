@@ -18,12 +18,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-/** Quản lý tạo file ma trận batch RQ1 và thực thi batch tuần tự với nhật ký và resume. */
+/** Quan ly tao file ma tran batch RQ1 va thuc thi batch tuan tu voi nhat ky va resume. */
 public final class Batch {
     private Batch() {
     }
 
-    /** Thông tin cấu hình cơ sở cho một điểm trong thí nghiệm RQ1. */
+    /** Thong tin cau hinh co so cho mot diem trong thi nghiem RQ1. */
     public static final class BaseConfig {
         public final String dataset;
         public final int p;
@@ -36,15 +36,15 @@ public final class Batch {
         }
     }
 
-    /** Danh sách 8 cấu hình duy nhất của RQ1 (thí nghiệm A và B). */
+    /** Danh sach 8 cau hinh duy nhat cua RQ1 (thi nghiem A va B). */
     public static List<BaseConfig> get8Configs() {
         List<BaseConfig> list = new ArrayList<BaseConfig>();
-        // Thí nghiệm A: dataset=rq1a, p=20, alpha thuộc {0.5, 0.75, 0.9, 0.95}
+        // Thi nghiem A: dataset=rq1a, p=20, alpha thuoc {0.5, 0.75, 0.9, 0.95}
         list.add(new BaseConfig("rq1a", 20, 0.50));
         list.add(new BaseConfig("rq1a", 20, 0.75));
         list.add(new BaseConfig("rq1a", 20, 0.90));
         list.add(new BaseConfig("rq1a", 20, 0.95));
-        // Thí nghiệm B: dataset=rq1b, alpha=0.75, p thuộc {18, 21, 22, 23} (p=20 dùng chung với A)
+        // Thi nghiem B: dataset=rq1b, alpha=0.75, p thuoc {18, 21, 22, 23} (p=20 dung chung voi A)
         list.add(new BaseConfig("rq1b", 18, 0.75));
         list.add(new BaseConfig("rq1b", 21, 0.75));
         list.add(new BaseConfig("rq1b", 22, 0.75));
@@ -52,18 +52,18 @@ public final class Batch {
         return list;
     }
 
-    /** Sinh toàn bộ 200 dòng của ma trận RQ1 theo quy tắc xen kẽ. */
+    /** Sinh toan bo 200 dong cua ma tran RQ1 theo quy tac xen ke. */
     public static List<String> generateRq1BatchLines() {
         List<String> lines = new ArrayList<String>();
-        lines.add("# Ma trận RQ1: 200 tiến trình tuần tự, xen kẽ cấu hình và thuật toán");
-        lines.add("# Gồm 8 cấu hình duy nhất (A: 4 mức alpha tại p=20; B: 4 mức p tại alpha=0.75, điểm p=20 dùng chung với A)");
-        lines.add("# Nhóm 1: 144 dòng thời gian (8 cấu hình x 2 thuật toán x 3 seed x 3 repeat)");
-        lines.add("# Nhóm 2: 48 dòng count (8 cấu hình x 2 thuật toán x 3 seed, repeat=1)");
-        lines.add("# Nhóm 3: 8 dòng dồn cụm rq1clust (p=18 và p=20, 2 thuật toán x {thời gian, count}, seed=1, repeat=1)");
+        lines.add("# Ma tran RQ1: 200 tien trinh tuan tu, xen ke cau hinh va thuat toan");
+        lines.add("# Gom 8 cau hinh duy nhat (A: 4 muc alpha tai p=20; B: 4 muc p tai alpha=0.75, diem p=20 dung chung voi A)");
+        lines.add("# Nhom 1: 144 dong thoi gian (8 cau hinh x 2 thuat toan x 3 seed x 3 repeat)");
+        lines.add("# Nhom 2: 48 dong count (8 cau hinh x 2 thuat toan x 3 seed, repeat=1)");
+        lines.add("# Nhom 3: 8 dong don cum rq1clust (p=18 va p=20, 2 thuat toan x {thoi gian, count}, seed=1, repeat=1)");
 
         List<BaseConfig> configs = get8Configs();
 
-        // Nhóm 1: 144 dòng thời gian
+        // Nhom 1: 144 dong thoi gian
         for (int repeat = 1; repeat <= 3; repeat++) {
             for (int seed = 1; seed <= 3; seed++) {
                 boolean reverseAlgo = ((repeat + seed) % 2 != 0);
@@ -76,7 +76,7 @@ public final class Batch {
             }
         }
 
-        // Nhóm 2: 48 dòng count
+        // Nhom 2: 48 dong count
         for (int seed = 1; seed <= 3; seed++) {
             boolean reverseAlgo = ((1 + seed) % 2 != 0);
             for (BaseConfig cfg : configs) {
@@ -87,7 +87,7 @@ public final class Batch {
             }
         }
 
-        // Nhóm 3: 8 dòng dồn cụm rq1clust
+        // Nhom 3: 8 dong don cum rq1clust
         lines.add(formatBatchLine("RQ1", "sc", "base", "rq1clust", 18, 0.75, 1, 1, 5000000L, 0));
         lines.add(formatBatchLine("RQ1", "lp-tomb", "base", "rq1clust", 18, 0.75, 1, 1, 5000000L, 0));
         lines.add(formatBatchLine("RQ1", "sc", "base", "rq1clust", 20, 0.75, 1, 1, 5000000L, 0));
@@ -100,7 +100,7 @@ public final class Batch {
         return lines;
     }
 
-    /** Sinh 360 tiến trình RQ2/RQ3: 270 lượt thời gian trước 90 lượt count. */
+    /** Sinh 360 tien trinh RQ2/RQ3: 270 luot thoi gian truoc 90 luot count. */
     public static List<String> generateRq23BatchLines() {
         List<String> lines = new ArrayList<String>();
         lines.add("# RQ2/RQ3: M=2^20, block=5000 chu ky (10^4 thao tac); moi moc C chay lai tu dau.");
@@ -177,7 +177,7 @@ public final class Batch {
                 + " seed=" + seed + " repeat=" + repeat + " queries=" + queries + " count=" + count;
     }
 
-    /** Ghi file ma trận ra đĩa. */
+    /** Ghi file ma tran ra dia. */
     public static void writeBatchFile(Path outPath) throws IOException {
         Path parent = outPath.toAbsolutePath().getParent();
         if (parent != null) {
@@ -192,7 +192,7 @@ public final class Batch {
         }
     }
 
-    /** Ghi ma trận RQ2/RQ3 ra đĩa. */
+    /** Ghi ma tran RQ2/RQ3 ra dia. */
     public static void writeRq23BatchFile(Path outPath) throws IOException {
         Path parent = outPath.toAbsolutePath().getParent();
         if (parent != null) {
@@ -206,7 +206,7 @@ public final class Batch {
         }
     }
 
-    /** Phân tích một dòng batch thành RunConfig. */
+    /** Phan tich mot dong batch thanh RunConfig. */
     public static RunConfig parseBatchLine(String line, String defaultXmx, int defaultTimeoutSec, String defaultMachineId) {
         String trimmed = line.trim();
         if (trimmed.length() == 0 || trimmed.startsWith("#")) {
@@ -242,7 +242,7 @@ public final class Batch {
                 tau, load, queries, seed, repeat, xmx, machineId, timeoutSec, count);
     }
 
-    /** Đọc file batch thành danh sách RunConfig. */
+    /** Doc file batch thanh danh sach RunConfig. */
     public static List<RunConfig> readBatchFile(Path batchPath, String defaultXmx, int defaultTimeoutSec, String defaultMachineId) throws IOException {
         List<RunConfig> list = new ArrayList<RunConfig>();
         try (BufferedReader reader = Files.newBufferedReader(batchPath, StandardCharsets.UTF_8)) {
@@ -257,7 +257,7 @@ public final class Batch {
         return list;
     }
 
-    /** Kiểm tra xem một cấu hình đã hoàn thành trong CSV đích chưa để resume. */
+    /** Kiem tra xem mot cau hinh da hoan thanh trong CSV dich chua de resume. */
     public static boolean isConfigCompletedInCsv(RunConfig config, Path csvPath) throws IOException {
         if (!Files.exists(csvPath)) {
             return false;
@@ -287,35 +287,35 @@ public final class Batch {
         return true;
     }
 
-    /** Chạy batch các cấu hình từ file với resume, log và thống kê. */
+    /** Chay batch cac cau hinh tu file voi resume, log va thong ke. */
     public static void runBatch(Path batchPath, Path csvPath, Path logPath, String defaultXmx,
             int defaultTimeoutSec, String defaultMachineId, boolean official, int limit) throws Exception {
         if (!Files.exists(batchPath)) {
-            throw new IllegalArgumentException("Không tìm thấy file batch: " + batchPath);
+            throw new IllegalArgumentException("Khong tim thay file batch: " + batchPath);
         }
 
         List<RunConfig> configs = readBatchFile(batchPath, defaultXmx, defaultTimeoutSec, defaultMachineId);
         if (configs.isEmpty()) {
-            System.out.println("File batch không có cấu hình nào cần chạy.");
+            System.out.println("File batch khong co cau hinh nao can chay.");
             return;
         }
 
-        // Kiểm tra đầu batch: đọc cả file, nếu có hai dòng cho cùng proc_id thì dừng và báo
+        // Kiem tra dau batch: doc ca file, neu co hai dong cho cung proc_id thi dung va bao
         Set<String> seenProcIds = new HashSet<String>();
         for (RunConfig cfg : configs) {
             String pid = cfg.procId();
             if (!seenProcIds.add(pid)) {
-                throw new IllegalStateException("Lỗi kiểm tra batch: phát hiện proc_id trùng lặp trong file batch: " + pid);
+                throw new IllegalStateException("Loi kiem tra batch: phat hien proc_id trung lap trong file batch: " + pid);
             }
         }
 
-        // Kiểm tra official một lần ở đầu batch
+        // Kiem tra official mot lan o dau batch
         if (official) {
             RunConfig sample = configs.get(0);
-            // Thử khởi tạo trạng thái git qua runWithCsv giả định
+            // Thu khoi tao trang thai git qua runWithCsv gia dinh
             try {
-                // Runner.runWithCsv sẽ kiểm tra gitState nếu official = true
-                System.out.println("[OFFICIAL] Kiểm tra tính hợp lệ của cây git trước batch...");
+                // Runner.runWithCsv se kiem tra gitState neu official = true
+                System.out.println("[OFFICIAL] Kiem tra tinh hop le cua cay git truoc batch...");
             } catch (Exception e) {
                 throw e;
             }
@@ -341,11 +341,11 @@ public final class Batch {
         long totalRunWallNanos = 0L;
 
         long batchStartNanos = System.nanoTime();
-        System.out.println("Bắt đầu thực thi batch: " + total + " tiến trình (limit=" + (limit > 0 ? limit : "none") + ")...");
+        System.out.println("Bat dau thuc thi batch: " + total + " tien trinh (limit=" + (limit > 0 ? limit : "none") + ")...");
 
         for (int i = 0; i < total; i++) {
             if (limit > 0 && processedCount >= limit) {
-                System.out.println("Đã đạt giới hạn --limit " + limit + ". Dừng batch.");
+                System.out.println("Da dat gioi han --limit " + limit + ". Dung batch.");
                 break;
             }
             processedCount++;
@@ -391,7 +391,7 @@ public final class Batch {
                 isCrash = true;
                 phaseStatuses = "error=" + t.getMessage();
                 wallMsStr = String.format(Locale.US, "%.3f", (System.nanoTime() - runStart) / 1e6);
-                System.err.println("Lỗi tiến trình " + procId + ": " + t.getMessage());
+                System.err.println("Loi tien trinh " + procId + ": " + t.getMessage());
             }
 
             long runWall = System.nanoTime() - runStart;
@@ -414,10 +414,10 @@ public final class Batch {
         }
 
         long batchTotalNanos = System.nanoTime() - batchStartNanos;
-        System.out.println("\n===== TỔNG KẾT BATCH =====");
-        System.out.printf(Locale.US, "Tổng tiến trình: %d | RUN: %d | SKIP: %d%n", total, runCount, skipCount);
-        System.out.printf(Locale.US, "Trạng thái: ok=%d | timeout=%d | crash=%d | oom=%d%n", okCount, timeoutCount, crashCount, oomCount);
-        System.out.printf(Locale.US, "Tổng thời gian batch: %.2f s%n", batchTotalNanos / 1e9);
+        System.out.println("\n===== TONG KET BATCH =====");
+        System.out.printf(Locale.US, "Tong tien trinh: %d | RUN: %d | SKIP: %d%n", total, runCount, skipCount);
+        System.out.printf(Locale.US, "Trang thai: ok=%d | timeout=%d | crash=%d | oom=%d%n", okCount, timeoutCount, crashCount, oomCount);
+        System.out.printf(Locale.US, "Tong thoi gian batch: %.2f s%n", batchTotalNanos / 1e9);
         System.out.println("==========================");
     }
 

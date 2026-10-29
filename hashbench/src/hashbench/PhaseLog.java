@@ -11,35 +11,35 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Ghi và đọc các pha đã hoàn thành của một tiến trình con. */
+/** Ghi va doc cac pha da hoan thanh cua mot tien trinh con. */
 public final class PhaseLog {
     private final Path file;
 
-    /** Tạo log tại results/raw/tmp dưới thư mục làm việc hiện tại. */
+    /** Tao log tai results/raw/tmp duoi thu muc lam viec hien tai. */
     public PhaseLog(String procId) throws IOException {
         this(procId, Paths.get("."));
     }
 
-    /** Tạo log tại results/raw/tmp dưới thư mục làm việc được chỉ định. */
+    /** Tao log tai results/raw/tmp duoi thu muc lam viec duoc chi dinh. */
     public PhaseLog(String procId, Path workingDirectory) throws IOException {
         if (procId == null || !procId.matches("[A-Za-z0-9_-]+")) {
-            throw new IllegalArgumentException("proc_id chỉ được chứa chữ, số, _ hoặc -");
+            throw new IllegalArgumentException("proc_id chi duoc chua chu, so, _ hoac -");
         }
         if (workingDirectory == null) {
-            throw new IllegalArgumentException("workingDirectory không được null");
+            throw new IllegalArgumentException("workingDirectory khong duoc null");
         }
         Path directory = workingDirectory.resolve(Paths.get("results", "raw", "tmp"));
         Files.createDirectories(directory);
         this.file = directory.resolve(procId + ".phases");
     }
 
-    /** Mở file ở chế độ append, ghi xong flush và đóng ngay. */
+    /** Mo file o che do append, ghi xong flush va dong ngay. */
     public void append(String phase, String status, double elapsedMs) throws IOException {
         append(phase, status, String.format(Locale.US, "%.3f", Double.valueOf(elapsedMs)),
                 "", "", "", "", "", "");
     }
 
-    /** Ghi toàn bộ số liệu pha vào một dòng TSV và đóng file ngay. */
+    /** Ghi toan bo so lieu pha vao mot dong TSV va dong file ngay. */
     public void append(String phase, String status, String elapsedMs, String heapBefore,
             String heapPeak, String opsCount, String outputCheck, String inputSha256,
             String generatorVersion) throws IOException {
@@ -47,7 +47,7 @@ public final class PhaseLog {
                 inputSha256, generatorVersion, null);
     }
 
-    /** Ghi toàn bộ số liệu pha và tám thống kê mở rộng vào một dòng TSV. */
+    /** Ghi toan bo so lieu pha va tam thong ke mo rong vao mot dong TSV. */
     public void append(String phase, String status, String elapsedMs, String heapBefore,
             String heapPeak, String opsCount, String outputCheck, String inputSha256,
             String generatorVersion, String tombRatio, String emptyRatio,
@@ -66,19 +66,19 @@ public final class PhaseLog {
             throws IOException {
         if (phase == null || phase.length() == 0 || phase.indexOf('\t') >= 0
                 || phase.indexOf('\n') >= 0 || phase.indexOf('\r') >= 0) {
-            throw new IllegalArgumentException("Tên pha không hợp lệ");
+            throw new IllegalArgumentException("Ten pha khong hop le");
         }
         if (!isAllowedStatus(status)) {
-            throw new IllegalArgumentException("Trạng thái không hợp lệ: " + status);
+            throw new IllegalArgumentException("Trang thai khong hop le: " + status);
         }
         if (elapsedMs == null || heapBefore == null || heapPeak == null || opsCount == null
                 || outputCheck == null || inputSha256 == null || generatorVersion == null) {
-            throw new IllegalArgumentException("Trường phase log không được null");
+            throw new IllegalArgumentException("Truong phase log khong duoc null");
         }
         if (extendedFields != null) {
             for (String value : extendedFields) {
                 if (value == null) {
-                    throw new IllegalArgumentException("Trường phase log không được null");
+                    throw new IllegalArgumentException("Truong phase log khong duoc null");
                 }
             }
         }
@@ -86,14 +86,14 @@ public final class PhaseLog {
             try {
                 double elapsed = Double.parseDouble(elapsedMs);
                 if (Double.isNaN(elapsed) || Double.isInfinite(elapsed) || elapsed < 0.0) {
-                    throw new NumberFormatException("elapsed_ms không hợp lệ");
+                    throw new NumberFormatException("elapsed_ms khong hop le");
                 }
             } catch (NumberFormatException exception) {
-                throw new IllegalArgumentException("elapsed_ms không hợp lệ", exception);
+                throw new IllegalArgumentException("elapsed_ms khong hop le", exception);
             }
         }
         if ("ok".equals(status) && elapsedMs.length() == 0) {
-            throw new IllegalArgumentException("Pha ok phải có elapsed_ms");
+            throw new IllegalArgumentException("Pha ok phai co elapsed_ms");
         }
 
         try (BufferedWriter writer = Files.newBufferedWriter(
@@ -123,16 +123,16 @@ public final class PhaseLog {
         }
     }
 
-    /** Ghi một trường TSV đã được ngăn cách bằng tab. */
+    /** Ghi mot truong TSV da duoc ngan cach bang tab. */
     private static void writeField(BufferedWriter writer, String value) throws IOException {
         if (value.indexOf('\t') >= 0 || value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0) {
-            throw new IllegalArgumentException("Trường phase log không hợp lệ");
+            throw new IllegalArgumentException("Truong phase log khong hop le");
         }
         writer.write('\t');
         writer.write(value);
     }
 
-    /** Đọc những dòng kết thúc bằng newline và bỏ qua phần cuối chưa hoàn chỉnh. */
+    /** Doc nhung dong ket thuc bang newline va bo qua phan cuoi chua hoan chinh. */
     public List<Entry> readCompleted() throws IOException {
         List<Entry> entries = new ArrayList<Entry>();
         if (!Files.exists(file)) {
@@ -156,7 +156,7 @@ public final class PhaseLog {
             String[] fields = line.split("\t", -1);
             if ((fields.length != 9 && fields.length != 17) || fields[0].length() == 0
                     || !isAllowedStatus(fields[1])) {
-                throw new IOException("Dòng phase log không hợp lệ: " + line);
+                throw new IOException("Dong phase log khong hop le: " + line);
             }
             if (fields.length == 9) {
                 String[] extended = new String[17];
@@ -171,31 +171,31 @@ public final class PhaseLog {
                     double elapsedMs = Double.parseDouble(fields[2]);
                     if (Double.isNaN(elapsedMs) || Double.isInfinite(elapsedMs)
                             || elapsedMs < 0.0) {
-                        throw new NumberFormatException("elapsed_ms không hợp lệ");
+                        throw new NumberFormatException("elapsed_ms khong hop le");
                     }
                 } else if ("ok".equals(fields[1])) {
-                    throw new NumberFormatException("Pha ok thiếu elapsed_ms");
+                    throw new NumberFormatException("Pha ok thieu elapsed_ms");
                 }
                 entries.add(new Entry(fields));
             } catch (NumberFormatException exception) {
-                throw new IOException("elapsed_ms không hợp lệ trong phase log: " + line, exception);
+                throw new IOException("elapsed_ms khong hop le trong phase log: " + line, exception);
             }
         }
         return entries;
     }
 
-    /** Chỉ chấp nhận các trạng thái CSV đã quy định. */
+    /** Chi chap nhan cac trang thai CSV da quy dinh. */
     private static boolean isAllowedStatus(String status) {
         return "ok".equals(status) || "timeout".equals(status) || "crash".equals(status)
                 || "oom".equals(status) || "wrong".equals(status);
     }
 
-    /** Trả về đường dẫn file phase log. */
+    /** Tra ve duong dan file phase log. */
     public Path path() {
         return file;
     }
 
-    /** Lưu một dòng pha hoàn chỉnh đã đọc từ file. */
+    /** Luu mot dong pha hoan chinh da doc tu file. */
     public static final class Entry {
         public final String phase;
         public final String status;

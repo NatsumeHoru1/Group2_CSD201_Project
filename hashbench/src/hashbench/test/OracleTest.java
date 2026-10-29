@@ -11,8 +11,8 @@ import java.util.HashMap;
 import java.util.SplittableRandom;
 
 /**
- * Oracle: so với HashMap trên 10^6 thao tác (put/get/remove = 40/40/20), M = 2^12, ba miền khóa ~0,5M / M / 2M.
- * Chỉ cập nhật oracle khi bảng KHÔNG trả FULL. Kiểm tra cả điều kiện FULL đúng/sai (size == M và khóa chưa có).
+ * Oracle: so voi HashMap tren 10^6 thao tac (put/get/remove = 40/40/20), M = 2^12, ba mien khoa ~0,5M / M / 2M.
+ * Chi cap nhat oracle khi bang KHONG tra FULL. Kiem tra ca dieu kien FULL dung/sai (size == M va khoa chua co).
  */
 public final class OracleTest {
     static final int P = 12, M = 1 << P;
@@ -25,7 +25,7 @@ public final class OracleTest {
         for (int i = 0; i < factors.length; i++) {
             final double f = factors[i];
             final boolean offset = (i == 1);
-            test("oracle " + ops + " thao tác, miền = " + f + "M" + (offset ? " (khóa lớn)" : ""),
+            test("oracle " + ops + " thao tac, mien = " + f + "M" + (offset ? " (khoa lon)" : ""),
                  new TestHarness.Body() { public void run() { one(impl, f, offset, ops); } });
         }
     }
@@ -46,17 +46,17 @@ public final class OracleTest {
                 boolean present = ref.containsKey(key);
                 int expect = present ? UPDATED : (ref.size() == M ? FULL : INSERTED);
                 int got = t.put(key, v);
-                if (got != expect) throw new AssertionError("op " + op + " put(" + key + "): mong " + expect + ", nhận " + got);
+                if (got != expect) throw new AssertionError("op " + op + " put(" + key + "): mong " + expect + ", nhan " + got);
                 if (got == FULL) fulls++; else { ref.put(key, v); if (got == INSERTED) inserts++; else updates++; }
             } else if (r < 80) {
                 Integer e = ref.get(key);
                 int exp = e == null ? NOT_FOUND : e;
                 int got = t.get(key);
-                if (got != exp) throw new AssertionError("op " + op + " get(" + key + "): mong " + exp + ", nhận " + got);
+                if (got != exp) throw new AssertionError("op " + op + " get(" + key + "): mong " + exp + ", nhan " + got);
             } else {
                 boolean exp = ref.remove(key) != null;
                 boolean got = t.remove(key);
-                if (got != exp) throw new AssertionError("op " + op + " remove(" + key + "): mong " + exp + ", nhận " + got);
+                if (got != exp) throw new AssertionError("op " + op + " remove(" + key + "): mong " + exp + ", nhan " + got);
                 if (got) removes++;
             }
             if (t.size() != ref.size()) throw new AssertionError("op " + op + ": size " + t.size() + " != " + ref.size());
@@ -65,9 +65,9 @@ public final class OracleTest {
         }
         sweep(t, ref, domain, mul, off, ops);
         TestUtil.validate(t);
-        if (factor > 1.0 && ops >= 200_000) check(fulls > 0, "miền " + factor + "M mà chưa bao giờ gặp FULL: oracle không phủ nhánh đầy");
-        check(inserts > 0 && removes > 0, "oracle không sinh đủ loại thao tác");
-        System.out.println("      (insert=" + inserts + " update=" + updates + " remove=" + removes + " FULL=" + fulls + " size cuối=" + t.size() + ")");
+        if (factor > 1.0 && ops >= 200_000) check(fulls > 0, "mien " + factor + "M ma chua bao gio gap FULL: oracle khong phu nhanh day");
+        check(inserts > 0 && removes > 0, "oracle khong sinh du loai thao tac");
+        System.out.println("      (insert=" + inserts + " update=" + updates + " remove=" + removes + " FULL=" + fulls + " size cuoi=" + t.size() + ")");
     }
 
     static void sweep(HashIndex t, HashMap<String, Integer> ref, int domain, long mul, long off, long op) {
@@ -75,7 +75,7 @@ public final class OracleTest {
             String key = hashbench.KeyCodec.encode(k * mul + off);
             Integer e = ref.get(key);
             int exp = e == null ? NOT_FOUND : e;
-            if (t.get(key) != exp) throw new AssertionError("quét toàn miền tại op " + op + ": get(" + key + ") sai");
+            if (t.get(key) != exp) throw new AssertionError("quet toan mien tai op " + op + ": get(" + key + ") sai");
         }
     }
 }

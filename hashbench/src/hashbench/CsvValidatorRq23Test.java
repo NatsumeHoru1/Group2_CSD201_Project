@@ -5,7 +5,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Kiểm tra nhóm checksum, coverage và đối chứng cho dataset RQ2/RQ3. */
+/** Kiem tra nhom checksum, coverage va doi chung cho dataset RQ2/RQ3. */
 public final class CsvValidatorRq23Test {
     private CsvValidatorRq23Test() {
     }
@@ -43,7 +43,7 @@ public final class CsvValidatorRq23Test {
         write(csv, rows);
         CsvValidator.Report report = CsvValidator.validate(csv, false);
         assertContains(report, "ctl_present khac present",
-                "RQ2 kiểm tra checksum đối chứng độc lập với cross-algorithm");
+                "RQ2 kiem tra checksum doi chung doc lap voi cross-algorithm");
     }
 
     private static void testRq23CoverageIncludesNotStarted(Path root) throws Exception {
@@ -61,12 +61,12 @@ public final class CsvValidatorRq23Test {
         Path csv = root.resolve("rq2-coverage.csv");
         write(csv, rows);
         CsvValidator.Report report = CsvValidator.validate(csv, false);
-        assertTrue(report.isValid(), "pha not_started vẫn được tính trong coverage RQ2");
+        assertTrue(report.isValid(), "pha not_started van duoc tinh trong coverage RQ2");
 
         rows.remove(rows.size() - 1);
         write(csv, rows);
         report = CsvValidator.validate(csv, false);
-        assertContains(report, "thieu pha rq2", "RQ2 thiếu pha phải thất bại");
+        assertContains(report, "thieu pha rq2", "RQ2 thieu pha phai that bai");
     }
 
     private static void testComparisonGroups(Path root) throws Exception {
@@ -83,7 +83,7 @@ public final class CsvValidatorRq23Test {
         write(csv, rows);
         CsvValidator.Report report = CsvValidator.validate(csv, true);
         assertEquals(1, countContains(report, "output_check khac nhau"),
-                "chỉ cấu hình cùng load/c phải được so sánh, bỏ tau khỏi nhóm");
+                "chi cau hinh cung load/c phai duoc so sanh, bo tau khoi nhom");
     }
 
     private static void addConfigRows(List<String[]> rows, RunConfig config,

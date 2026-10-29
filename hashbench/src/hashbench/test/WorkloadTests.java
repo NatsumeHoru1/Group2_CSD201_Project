@@ -16,8 +16,8 @@ import java.util.IdentityHashMap;
 import java.util.Set;
 
 /**
- * Kiểm tra Workload API mới và ControlTable.
- * p = 12 để chạy nhanh; blockCycles = 500.
+ * Kiem tra Workload API moi va ControlTable.
+ * p = 12 de chay nhanh; blockCycles = 500.
  */
 public final class WorkloadTests {
     private static final int P          = 12;
@@ -28,99 +28,99 @@ public final class WorkloadTests {
     private WorkloadTests() {}
 
     public static void run(Impl impl) {
-        test("workload tải 0.5, C=2*M, blockCycles=500: đúng và khớp đối chứng",
+        test("workload tai 0.5, C=2*M, blockCycles=500: dung va khop doi chung",
              new TestHarness.Body() { public void run() { one(impl, 0.5, 2 * M); } });
-        test("workload tải 0.5, C=0: execute trả ops=0 blocks=0",
+        test("workload tai 0.5, C=0: execute tra ops=0 blocks=0",
              new TestHarness.Body() { public void run() { zeroSteps(impl, 0.5); } });
-        test("workload tải 0.8, C=M: đúng và khớp đối chứng",
+        test("workload tai 0.8, C=M: dung va khop doi chung",
              new TestHarness.Body() { public void run() { one(impl, 0.8, M); } });
-        test("generate tất định: cùng seed => y hệt, seed khác => khác",
+        test("generate tat dinh: cung seed => y het, seed khac => khac",
              new TestHarness.Body() { public void run() { determinism(); } });
-        test("workload nhiều seed, mức tải và thuật toán khớp bảng đối chứng",
+        test("workload nhieu seed, muc tai va thuat toan khop bang doi chung",
              new TestHarness.Body() { public void run() { matrix(impl); } });
-        test("presentQueries: mọi phần tử trong liveKeys, không có object trùng pool",
+        test("presentQueries: moi phan tu trong liveKeys, khong co object trung pool",
              new TestHarness.Body() { public void run() { presentQueryCheck(); } });
-        test("generate từ chối tham số load hoặc steps không hợp lệ",
+        test("generate tu choi tham so load hoac steps khong hop le",
              new TestHarness.Body() { public void run() { invalidInputs(); } });
-        test("thời gian generate/execute p=20 (in ra, không assert)",
+        test("thoi gian generate/execute p=20 (in ra, khong assert)",
              new TestHarness.Body() { public void run() { timingLarge(impl); } });
     }
 
     // ------------------------------------------------------------------ //
 
-    /** Kiểm tra đầy đủ một cấu hình (a)(c)(d)(e). */
+    /** Kiem tra day du mot cau hinh (a)(c)(d)(e). */
     static void one(Impl impl, double load, int steps) {
         Workload w = Workload.generate(P, load, steps, SEED, 20_000);
 
-        // (a) pool không trùng, absentQueries không giao pool
+        // (a) pool khong trung, absentQueries khong giao pool
         checkNodup(w);
 
-        // (b) generate hai lần cùng seed => y hệt
-        // (kiểm trong determinism(); ở đây tin tưởng)
+        // (b) generate hai lan cung seed => y het
+        // (kiem trong determinism(); o day tin tuong)
 
         // (d) load + execute
         HashIndex t = impl.f.create(P);
         int fullLoad = w.load(t);
-        eq(0, fullLoad, "nạp dữ liệu ban đầu phải không FULL");
+        eq(0, fullLoad, "nap du lieu ban dau phai khong FULL");
 
         int needed = (steps <= 0) ? 0 : (int) ((steps + BLOCK_CYC - 1) / BLOCK_CYC);
         long[] blockNanos = new long[needed == 0 ? 1 : needed];
         Workload.Result r = w.execute(t, BLOCK_CYC, blockNanos);
 
-        eq(0, r.fullCount, "put trong workload không được FULL");
+        eq(0, r.fullCount, "put trong workload khong duoc FULL");
         eq(w.n, t.size(), "size sau workload == N");
-        check(w.verify(t), "verify() sau workload phải true");
+        check(w.verify(t), "verify() sau workload phai true");
 
         if (steps > 0) {
-            eq(needed, r.blocks, "số khối = ceil(steps/blockCycles)");
+            eq(needed, r.blocks, "so khoi = ceil(steps/blockCycles)");
             for (int i = 0; i < needed; i++) {
-                check(blockNanos[i] > 0, "blockNanos[" + i + "] phải > 0");
+                check(blockNanos[i] > 0, "blockNanos[" + i + "] phai > 0");
             }
         }
 
-        // (e) ControlTable: checksum get presentQueries & absentQueries giống nhau
+        // (e) ControlTable: checksum get presentQueries & absentQueries giong nhau
         HashIndex ctl = impl.f.create(P);
         ControlTable.fill(ctl, w);
 
         long pChkT   = QueryBench.timeGets(t,   w.presentQueries()).checksum;
         long pChkCtl = QueryBench.timeGets(ctl, w.presentQueries()).checksum;
-        eq(pChkT, pChkCtl, "checksum present: workload == đối chứng");
+        eq(pChkT, pChkCtl, "checksum present: workload == doi chung");
 
         long aChkT   = QueryBench.timeGets(t,   w.absentQueries()).checksum;
         long aChkCtl = QueryBench.timeGets(ctl, w.absentQueries()).checksum;
-        eq(aChkT, aChkCtl, "checksum absent: workload == đối chứng");
+        eq(aChkT, aChkCtl, "checksum absent: workload == doi chung");
     }
 
-    /** (f) steps=0: execute trả ops=0, blocks=0. */
+    /** (f) steps=0: execute tra ops=0, blocks=0. */
     static void zeroSteps(Impl impl, double load) {
         Workload w = Workload.generate(P, load, 0, SEED, 100);
         HashIndex t = impl.f.create(P);
         w.load(t);
         Workload.Result r = w.execute(t, BLOCK_CYC, null);
-        eq(0L,  r.ops,    "ops phải = 0 khi steps=0");
-        eq(0,   r.blocks, "blocks phải = 0 khi steps=0");
-        eq(0,   r.fullCount, "fullCount phải = 0 khi steps=0");
+        eq(0L,  r.ops,    "ops phai = 0 khi steps=0");
+        eq(0,   r.blocks, "blocks phai = 0 khi steps=0");
+        eq(0,   r.fullCount, "fullCount phai = 0 khi steps=0");
         check(w.verify(t), "verify sau steps=0");
     }
 
-    /** (b) tính tất định. */
+    /** (b) tinh tat dinh. */
     static void determinism() {
         Workload w1a = Workload.generate(P, 0.5, M, SEED,     500);
         Workload w1b = Workload.generate(P, 0.5, M, SEED,     500);
         Workload w2  = Workload.generate(P, 0.5, M, SEED + 1, 500);
 
-        // Cùng seed => pool y hệt
-        check(Arrays.equals(w1a.pool(), w1b.pool()), "pool cùng seed phải giống nhau");
+        // Cung seed => pool y het
+        check(Arrays.equals(w1a.pool(), w1b.pool()), "pool cung seed phai giong nhau");
         check(Arrays.equals(w1a.presentQueries(), w1b.presentQueries()),
-              "presentQueries cùng seed phải giống nhau");
+              "presentQueries cung seed phai giong nhau");
         check(Arrays.equals(w1a.absentQueries(), w1b.absentQueries()),
-              "absentQueries cùng seed phải giống nhau");
+              "absentQueries cung seed phai giong nhau");
 
-        // Seed khác => pool khác (xác suất va chạm cực thấp)
-        check(!Arrays.equals(w1a.pool(), w2.pool()), "pool seed khác phải khác");
+        // Seed khac => pool khac (xac suat va cham cuc thap)
+        check(!Arrays.equals(w1a.pool(), w2.pool()), "pool seed khac phai khac");
     }
 
-    /** Chạy workload trên ma trận seed/load với mọi implementation khả dụng. */
+    /** Chay workload tren ma tran seed/load voi moi implementation kha dung. */
     static void matrix(Impl impl) {
         double[] loads = {0.25, 0.5, 0.8, 1.0};
         long[] seeds = {1L, 42L, 20261101L};
@@ -132,27 +132,27 @@ public final class WorkloadTests {
             for (long seed : seeds) {
                 Workload w = Workload.generate(p, load, steps, seed, 256);
                 HashIndex table = impl.f.create(p);
-                eq(0, w.load(table), "nạp workload ma trận không được FULL");
+                eq(0, w.load(table), "nap workload ma tran khong duoc FULL");
 
                 int blocks = (steps + blockCycles - 1) / blockCycles;
                 long[] blockNanos = new long[blocks];
                 Workload.Result result = w.execute(table, blockCycles, blockNanos);
-                eq(0, result.fullCount, "put workload ma trận không được FULL");
-                eq(blocks, result.blocks, "số block workload ma trận");
-                eq(w.n, table.size(), "size workload ma trận");
-                check(w.verify(table), "verify workload ma trận");
+                eq(0, result.fullCount, "put workload ma tran khong duoc FULL");
+                eq(blocks, result.blocks, "so block workload ma tran");
+                eq(w.n, table.size(), "size workload ma tran");
+                check(w.verify(table), "verify workload ma tran");
                 for (long nanos : blockNanos) {
-                    check(nanos > 0, "block workload ma trận phải có thời gian");
+                    check(nanos > 0, "block workload ma tran phai co thoi gian");
                 }
 
                 HashIndex control = impl.f.create(p);
                 ControlTable.fill(control, w);
                 eq(QueryBench.timeGets(table, w.presentQueries()).checksum,
                         QueryBench.timeGets(control, w.presentQueries()).checksum,
-                        "checksum present workload ma trận");
+                        "checksum present workload ma tran");
                 eq(QueryBench.timeGets(table, w.absentQueries()).checksum,
                         QueryBench.timeGets(control, w.absentQueries()).checksum,
-                        "checksum absent workload ma trận");
+                        "checksum absent workload ma tran");
             }
         }
     }
@@ -164,7 +164,7 @@ public final class WorkloadTests {
         } catch (IllegalArgumentException expected) {
             threw = true;
         }
-        check(threw, "steps âm phải ném IllegalArgumentException");
+        check(threw, "steps am phai nem IllegalArgumentException");
 
         double[] invalidLoads = {0.0, -0.5, 1.01, Double.NaN,
                 Double.POSITIVE_INFINITY};
@@ -175,44 +175,44 @@ public final class WorkloadTests {
             } catch (IllegalArgumentException expected) {
                 threw = true;
             }
-            check(threw, "load ngoài (0, 1] phải ném IllegalArgumentException: "
+            check(threw, "load ngoai (0, 1] phai nem IllegalArgumentException: "
                     + load);
         }
     }
 
-    /** (a) và (c). */
+    /** (a) va (c). */
     static void checkNodup(Workload w) {
         String[] pool = w.pool();
-        // pool không có phần tử trùng
+        // pool khong co phan tu trung
         Set<String> poolSet = new HashSet<String>(Arrays.asList(pool));
-        eq(pool.length, poolSet.size(), "pool không được có phần tử trùng");
+        eq(pool.length, poolSet.size(), "pool khong duoc co phan tu trung");
 
-        // absentQueries không giao pool
+        // absentQueries khong giao pool
         for (String k : w.absentQueries()) {
-            check(!poolSet.contains(k), "absentQueries không được nằm trong pool: " + k);
+            check(!poolSet.contains(k), "absentQueries khong duoc nam trong pool: " + k);
         }
 
-        // (c) presentQueries: mọi phần tử là khóa sống (nằm trong liveKeys)
-        //     và không có object nào trùng tham chiếu với pool
+        // (c) presentQueries: moi phan tu la khoa song (nam trong liveKeys)
+        //     va khong co object nao trung tham chieu voi pool
         Set<String> liveSet = new HashSet<String>(Arrays.asList(w.liveKeys()));
         IdentityHashMap<String, Boolean> poolIdentity = new IdentityHashMap<String, Boolean>();
         for (String s : pool) poolIdentity.put(s, Boolean.TRUE);
 
         for (String pq : w.presentQueries()) {
             check(liveSet.contains(pq),
-                  "presentQuery phải là khóa sống: " + pq);
+                  "presentQuery phai la khoa song: " + pq);
             check(!poolIdentity.containsKey(pq),
-                  "presentQuery không được là cùng object với phần tử pool");
+                  "presentQuery khong duoc la cung object voi phan tu pool");
         }
     }
 
-    /** (c) kiểm riêng identity. */
+    /** (c) kiem rieng identity. */
     static void presentQueryCheck() {
         Workload w = Workload.generate(P, 0.5, M, SEED, 1000);
         checkNodup(w);
     }
 
-    /** Đo thời gian generate/execute p=20 (in ra, không assert). */
+    /** Do thoi gian generate/execute p=20 (in ra, khong assert). */
     static void timingLarge(Impl impl) {
         int bigP = 20;
         long bigSteps = 1 << 20; // 1048576

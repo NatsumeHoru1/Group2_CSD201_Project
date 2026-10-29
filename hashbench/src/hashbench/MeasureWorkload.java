@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** Đo các mốc workload RQ2/RQ3 trong tiến trình con. */
+/** Do cac moc workload RQ2/RQ3 trong tien trinh con. */
 public final class MeasureWorkload {
     private static final int BLOCK_CYCLES = 5000;
     private static final int WARMUP_CYCLES = 8192;
@@ -16,7 +16,7 @@ public final class MeasureWorkload {
     private MeasureWorkload() {
     }
 
-    /** Chạy tuần tự các pha, ghi log ngay sau mỗi pha; trả 0, 1 hoặc 3 làm exit code. */
+    /** Chay tuan tu cac pha, ghi log ngay sau moi pha; tra 0, 1 hoac 3 lam exit code. */
     public static int run(String algo, String variant, String dataset, int p, double load,
             int cycles, double tau, long seed, int queries, boolean countMode,
             List<String> phases, PhaseLog log) throws IOException {
@@ -87,7 +87,7 @@ public final class MeasureWorkload {
                     appendQueryPhase(log, phase, index, workload, countMode,
                             inputSha256);
                 } else {
-                    throw new IllegalArgumentException("Pha RQ2/RQ3 không hỗ trợ: " + phase);
+                    throw new IllegalArgumentException("Pha RQ2/RQ3 khong ho tro: " + phase);
                 }
             } catch (OutOfMemoryError error) {
                 appendFailure(log, phase, "oom", inputSha256,
@@ -149,7 +149,7 @@ public final class MeasureWorkload {
     private static String[] workloadMetrics(HashIndex index, long[] blockNanos,
             int blockCount) {
         if (!(index instanceof HashStats)) {
-            throw new IllegalStateException("Algorithm không cung cấp HashStats");
+            throw new IllegalStateException("Algorithm khong cung cap HashStats");
         }
         HashStats stats = (HashStats) index;
         String[] metrics = emptyMetrics();
@@ -205,7 +205,7 @@ public final class MeasureWorkload {
 
     private static void requireIndex(HashIndex index) {
         if (index == null) {
-            throw new IllegalStateException("Pha build phải chạy trước workload/query phase");
+            throw new IllegalStateException("Pha build phai chay truoc workload/query phase");
         }
     }
 }

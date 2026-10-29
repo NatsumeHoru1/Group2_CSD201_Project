@@ -12,14 +12,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Kiểm tra đo RQ1 thật qua tiến trình con và dữ liệu CSV, không dùng JUnit. */
+/** Kiem tra do RQ1 that qua tien trinh con va du lieu CSV, khong dung JUnit. */
 public final class MeasureChildTest {
     private static final String[] PHASES = {"build", "present", "absent"};
 
     private MeasureChildTest() {
     }
 
-    /** Chạy mọi ca đo thật; in một dòng tổng PASS khi tất cả đều đạt. */
+    /** Chay moi ca do that; in mot dong tong PASS khi tat ca deu dat. */
     public static void main(String[] args) throws Exception {
         Path root = Files.createTempDirectory("hashbench-measure-test-");
         try {
@@ -39,7 +39,7 @@ public final class MeasureChildTest {
         }
     }
 
-    /** Kiểm tra ba pha, trường số, hash input và kết quả ổn định giữa hai lượt. */
+    /** Kiem tra ba pha, truong so, hash input va ket qua on dinh giua hai luot. */
     private static void testMeasurementsAreDeterministic(Path root) throws Exception {
         Files.createDirectories(root);
         RunConfig config = config("rh", "base", 10, 0.75, 20000, 42L, false, 30);
@@ -47,7 +47,7 @@ public final class MeasureChildTest {
         Runner.RunResult second = run(config, root.resolve("second.csv"), root);
         List<String[]> firstRows = readCsv(root.resolve("first.csv"));
         List<String[]> secondRows = readCsv(root.resolve("second.csv"));
-        assertEquals(4, firstRows.size(), "header và ba pha");
+        assertEquals(4, firstRows.size(), "header va ba pha");
         assertHeader(firstRows.get(0));
         for (int i = 0; i < PHASES.length; i++) {
             String[] row = firstRows.get(i + 1);
@@ -72,7 +72,7 @@ public final class MeasureChildTest {
         }
     }
 
-    /** So sánh output_check với oracle HashMap được tạo độc lập trong test. */
+    /** So sanh output_check voi oracle HashMap duoc tao doc lap trong test. */
     private static void testIndependentOracle(Path root) throws Exception {
         Files.createDirectories(root);
         RunConfig config = config("rh", "base", 10, 0.75, 20000, 1L, false, 30);
@@ -86,9 +86,9 @@ public final class MeasureChildTest {
         }
         for (int i = 0; i < data.presentQueries.length; i++) {
             String query = data.presentQueries[i];
-            assertTrue(oracle.containsKey(query), "present query phải nằm trong present");
+            assertTrue(oracle.containsKey(query), "present query phai nam trong present");
             assertTrue(query != presentObjects.get(query),
-                    "present query phải là object String độc lập");
+                    "present query phai la object String doc lap");
         }
         long expectedPresent = expectedCheck(data.presentQueries, oracle);
         long expectedAbsent = expectedCheck(data.absentQueries, oracle);
@@ -101,7 +101,7 @@ public final class MeasureChildTest {
                 rows.get(3)[CsvSchema.OUTPUT_CHECK_INDEX], "oracle absent");
     }
 
-    /** Xác nhận rh/base và rh/noearly tạo cùng output_check trên cùng input. */
+    /** Xac nhan rh/base va rh/noearly tao cung output_check tren cung input. */
     private static void testVariantsAgree(Path root) throws Exception {
         Files.createDirectories(root);
         RunConfig base = config("rh", "base", 10, 0.75, 20000, 9L, false, 30);
@@ -113,11 +113,11 @@ public final class MeasureChildTest {
         for (int i = 2; i < 4; i++) {
             assertEquals(baseRows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX],
                     noearlyRows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX],
-                    "output_check giữa variant");
+                    "output_check giua variant");
         }
     }
 
-    /** Xác nhận count ghi probe count ở cả hai pha query và hợp lý trung bình. */
+    /** Xac nhan count ghi probe count o ca hai pha query va hop ly trung binh. */
     private static void testCounters(Path root) throws Exception {
         Files.createDirectories(root);
         RunConfig config = config("rh", "base", 10, 0.75, 20000, 5L, true, 30);
@@ -125,14 +125,14 @@ public final class MeasureChildTest {
         List<String[]> rows = readCsv(root.resolve("count.csv"));
         long presentOps = Long.parseLong(rows.get(2)[CsvSchema.OPS_COUNT_INDEX]);
         long absentOps = Long.parseLong(rows.get(3)[CsvSchema.OPS_COUNT_INDEX]);
-        assertTrue(presentOps > 0L, "present ops_count phải dương");
-        assertTrue(absentOps > 0L, "absent ops_count phải dương");
+        assertTrue(presentOps > 0L, "present ops_count phai duong");
+        assertTrue(absentOps > 0L, "absent ops_count phai duong");
         double averagePresent = presentOps / (double) config.queries;
         assertTrue(averagePresent >= 1.0 && averagePresent <= 10.0,
-                "present probes trung bình ngoài khoảng 1..10: " + averagePresent);
+                "present probes trung binh ngoai khoang 1..10: " + averagePresent);
     }
 
-    /** Xác nhận lp-tomb nhận tau qua tiến trình con mà không đổi kết quả truy vấn. */
+    /** Xac nhan lp-tomb nhan tau qua tien trinh con ma khong doi ket qua truy van. */
     private static void testTauForwarding(Path root) throws Exception {
         Files.createDirectories(root);
         RunConfig infinite = config("lp-tomb", "base", 10, 0.75, 20000, 1L,
@@ -168,34 +168,34 @@ public final class MeasureChildTest {
         }
     }
 
-    /** Dùng hook sleep để timeout luôn xảy ra trong pha chỉ định, không phụ thuộc tốc độ máy. */
+    /** Dung hook sleep de timeout luon xay ra trong pha chi dinh, khong phu thuoc toc do may. */
     private static void testTimeoutHarvesting(Path root) throws Exception {
         Files.createDirectories(root);
         RunConfig config = config("rh", "base", 10, 0.75, 20000, 7L, false, 10)
                 .withSleepPhase("present", 60L);
         Runner.RunResult result = run(config, root.resolve("timeout.csv"), root);
-        assertTrue(result.timedOut, "sleep ở present phải timeout");
+        assertTrue(result.timedOut, "sleep o present phai timeout");
         List<String[]> rows = readCsv(root.resolve("timeout.csv"));
-        assertEquals(PHASES.length + 1, rows.size(), "mọi pha phải được thu hoạch");
+        assertEquals(PHASES.length + 1, rows.size(), "moi pha phai duoc thu hoach");
         String[] build = rows.get(1);
         String[] present = rows.get(2);
         String[] absent = rows.get(3);
         assertEquals("build", build[CsvSchema.PHASE_INDEX], "pha build");
-        assertEquals("ok", build[CsvSchema.STATUS_INDEX], "build phải hoàn tất");
+        assertEquals("ok", build[CsvSchema.STATUS_INDEX], "build phai hoan tat");
         assertMatches("[0-9]+\\.[0-9]{3}", build[CsvSchema.ELAPSED_MS_INDEX],
                 "elapsed build");
         assertEquals("present", present[CsvSchema.PHASE_INDEX], "pha present");
-        assertEquals("timeout", present[CsvSchema.STATUS_INDEX], "present phải timeout");
+        assertEquals("timeout", present[CsvSchema.STATUS_INDEX], "present phai timeout");
         assertEquals("", present[CsvSchema.ELAPSED_MS_INDEX], "elapsed present timeout");
         assertEquals("", present[CsvSchema.PHASE_NOTE_INDEX], "present phase_note");
         assertEquals("absent", absent[CsvSchema.PHASE_INDEX], "pha absent");
         assertEquals("timeout", absent[CsvSchema.STATUS_INDEX], "absent sau timeout");
         assertEquals("", absent[CsvSchema.ELAPSED_MS_INDEX], "elapsed absent");
         assertEquals("not_started", absent[CsvSchema.PHASE_NOTE_INDEX],
-                "absent chưa bắt đầu");
+                "absent chua bat dau");
     }
 
-    /** Kiểm tra dataset rq1clust dồn cụm với sc và lp-tomb. */
+    /** Kiem tra dataset rq1clust don cum voi sc va lp-tomb. */
     private static void testClusteredDataset(Path root) throws Exception {
         Files.createDirectories(root);
         int p = 10;
@@ -203,7 +203,7 @@ public final class MeasureChildTest {
         long queries = 20000L;
         long seed = 1L;
 
-        // Kiểm tra tập khóa dồn cụm sinh ra có >= 10% hash < max(1, M/64)
+        // Kiem tra tap khoa don cum sinh ra co >= 10% hash < max(1, M/64)
         int n = (int) Math.round(alpha * (1 << p));
         String[] clusteredKeys = Generator.generateClusteredKeys(seed, n, p);
         int clusterLimit = Math.max(1, (1 << p) / 64);
@@ -213,7 +213,7 @@ public final class MeasureChildTest {
                 inCluster++;
             }
         }
-        assertTrue(inCluster >= (n + 9) / 10, "rq1clust phải có >= 10% khóa dồn cụm");
+        assertTrue(inCluster >= (n + 9) / 10, "rq1clust phai co >= 10% khoa don cum");
 
         RunConfig scConfig = new RunConfig("RQ1", "sc", "base", "rq1clust", 0L, p, alpha,
                 0, Double.POSITIVE_INFINITY, 0.0, queries, seed, 1, "2g", "", 30, false);
@@ -228,16 +228,16 @@ public final class MeasureChildTest {
         List<String[]> sc2Rows = readCsv(root.resolve("sc2.csv"));
         List<String[]> lpRows = readCsv(root.resolve("lp.csv"));
 
-        assertEquals(4, sc1Rows.size(), "sc hàng");
-        assertEquals(4, lpRows.size(), "lp hàng");
+        assertEquals(4, sc1Rows.size(), "sc hang");
+        assertEquals(4, lpRows.size(), "lp hang");
 
         for (int i = 1; i <= 3; i++) {
             assertEquals("ok", sc1Rows.get(i)[CsvSchema.STATUS_INDEX], "sc status");
             assertEquals("ok", lpRows.get(i)[CsvSchema.STATUS_INDEX], "lp status");
-            // Hai lần chạy cùng seed cho output_check y hệt
+            // Hai lan chay cung seed cho output_check y het
             assertEquals(sc1Rows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX],
                     sc2Rows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX], "sc seed determinism");
-            // output_check present/absent giống nhau giữa sc và lp-tomb
+            // output_check present/absent giong nhau giua sc va lp-tomb
             assertEquals(sc1Rows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX],
                     lpRows.get(i)[CsvSchema.OUTPUT_CHECK_INDEX], "output_check sc vs lp");
         }
@@ -251,10 +251,10 @@ public final class MeasureChildTest {
         List<String[]> rows = readCsv(root.resolve("rq2.csv"));
         String[] phases = {"build", "workload", "present", "absent",
             "ctl_present", "ctl_absent"};
-        assertEquals(phases.length + 1, rows.size(), "RQ2 header và sáu pha");
+        assertEquals(phases.length + 1, rows.size(), "RQ2 header va sau pha");
         for (int i = 0; i < phases.length; i++) {
             assertEquals(phases[i], rows.get(i + 1)[CsvSchema.PHASE_INDEX],
-                    "thứ tự pha RQ2");
+                    "thu tu pha RQ2");
             assertEquals("ok", rows.get(i + 1)[CsvSchema.STATUS_INDEX],
                     "status pha RQ2 " + phases[i]);
         }
@@ -286,20 +286,20 @@ public final class MeasureChildTest {
             run(config, secondCsv, root);
             List<String[]> firstRows = readCsv(firstCsv);
             List<String[]> secondRows = readCsv(secondCsv);
-            assertEquals(phases.length + 1, firstRows.size(), "RQ3 header và bốn pha");
+            assertEquals(phases.length + 1, firstRows.size(), "RQ3 header va bon pha");
             String[] outputs = new String[2];
             String[] hashes = new String[2];
             for (int phase = 0; phase < phases.length; phase++) {
                 String[] row = firstRows.get(phase + 1);
                 String[] again = secondRows.get(phase + 1);
-                assertEquals(phases[phase], row[CsvSchema.PHASE_INDEX], "thứ tự pha RQ3");
+                assertEquals(phases[phase], row[CsvSchema.PHASE_INDEX], "thu tu pha RQ3");
                 assertEquals("ok", row[CsvSchema.STATUS_INDEX],
                         "status pha RQ3 " + phases[phase]);
                 assertEquals(row[CsvSchema.OUTPUT_CHECK_INDEX],
                         again[CsvSchema.OUTPUT_CHECK_INDEX],
-                        "output_check cùng seed/lượt chạy " + phases[phase]);
+                        "output_check cung seed/luot chay " + phases[phase]);
                 assertEquals(row[CsvSchema.INPUT_SHA256_INDEX],
-                        again[CsvSchema.INPUT_SHA256_INDEX], "SHA cùng seed");
+                        again[CsvSchema.INPUT_SHA256_INDEX], "SHA cung seed");
                 if (phase == 2 || phase == 3) {
                     outputs[phase - 2] = row[CsvSchema.OUTPUT_CHECK_INDEX];
                     hashes[phase - 2] = row[CsvSchema.INPUT_SHA256_INDEX];
@@ -309,8 +309,8 @@ public final class MeasureChildTest {
                 reference = outputs;
                 referenceHash = hashes;
             } else {
-                assertEquals(reference[0], outputs[0], "RQ3 present giữa thuật toán");
-                assertEquals(reference[1], outputs[1], "RQ3 absent giữa thuật toán");
+                assertEquals(reference[0], outputs[0], "RQ3 present giua thuat toan");
+                assertEquals(reference[1], outputs[1], "RQ3 absent giua thuat toan");
                 assertEquals(referenceHash[0], hashes[0], "RQ3 present input SHA");
                 assertEquals(referenceHash[1], hashes[1], "RQ3 absent input SHA");
             }
@@ -323,15 +323,15 @@ public final class MeasureChildTest {
                 0.5, 0, Double.POSITIVE_INFINITY, 20000, 37L, true);
         run(config, root.resolve("rq2-zero.csv"), root);
         List<String[]> rows = readCsv(root.resolve("rq2-zero.csv"));
-        assertEquals(7, rows.size(), "C=0 vẫn có đủ sáu pha RQ2");
+        assertEquals(7, rows.size(), "C=0 van co du sau pha RQ2");
         for (int i = 1; i < rows.size(); i++) {
             assertEquals("ok", rows.get(i)[CsvSchema.STATUS_INDEX], "status RQ2 C=0");
         }
         String[] workload = rows.get(2);
         assertEquals("", workload[CsvSchema.BLOCK_MEDIAN_MS_INDEX],
-                "C=0 không có block median");
+                "C=0 khong co block median");
         assertEquals("", workload[CsvSchema.BLOCK_MAX_MS_INDEX],
-                "C=0 không có block max");
+                "C=0 khong co block max");
         assertEquals(rows.get(3)[CsvSchema.OUTPUT_CHECK_INDEX],
                 rows.get(5)[CsvSchema.OUTPUT_CHECK_INDEX],
                 "ctl_present checksum C=0");
@@ -350,26 +350,26 @@ public final class MeasureChildTest {
                 "2g", "test", 60, countMode);
     }
 
-    /** Tạo cấu hình RQ1 riêng cho từng lượt test. */
+    /** Tao cau hinh RQ1 rieng cho tung luot test. */
     private static RunConfig config(String algo, String variant, int p, double alpha,
             long queries, long seed, boolean count, int timeoutSec) {
         return config(algo, variant, p, alpha, queries, seed, count, timeoutSec, 0.0);
     }
 
-    /** Tạo cấu hình RQ1 với tau cụ thể. */
+    /** Tao cau hinh RQ1 voi tau cu the. */
     private static RunConfig config(String algo, String variant, int p, double alpha,
             long queries, long seed, boolean count, int timeoutSec, double tau) {
         return new RunConfig("RQ1", algo, variant, "rq1a", 0L, p, alpha,
                 0, tau, 0.0, queries, seed, 1, "2g", "", timeoutSec, count);
     }
 
-    /** Chạy runner và ghi vào đúng file CSV riêng của ca test. */
+    /** Chay runner va ghi vao dung file CSV rieng cua ca test. */
     private static Runner.RunResult run(RunConfig config, Path csv, Path workingDirectory)
             throws Exception {
         return Runner.runWithCsv(config, csv, workingDirectory);
     }
 
-    /** Tính oracle theo quy ước giá trị tìm thấy cộng một cho mỗi miss. */
+    /** Tinh oracle theo quy uoc gia tri tim thay cong mot cho moi miss. */
     private static long expectedCheck(String[] queries, Map<String, Integer> oracle) {
         long total = 0L;
         for (int i = 0; i < queries.length; i++) {
@@ -379,15 +379,15 @@ public final class MeasureChildTest {
         return total;
     }
 
-    /** Kiểm tra header theo toàn bộ schema chuẩn. */
+    /** Kiem tra header theo toan bo schema chuan. */
     private static void assertHeader(String[] header) {
-        assertEquals(CsvSchema.COLUMNS.length, header.length, "số cột header");
+        assertEquals(CsvSchema.COLUMNS.length, header.length, "so cot header");
         for (int i = 0; i < header.length; i++) {
-            assertEquals(CsvSchema.COLUMNS[i], header[i], "tên cột header");
+            assertEquals(CsvSchema.COLUMNS[i], header[i], "ten cot header");
         }
     }
 
-    /** Đọc CSV mà các trường test không chứa dấu phẩy. */
+    /** Doc CSV ma cac truong test khong chua dau phay. */
     private static List<String[]> readCsv(Path file) throws IOException {
         java.util.ArrayList<String[]> rows = new java.util.ArrayList<String[]>();
         try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
@@ -399,7 +399,7 @@ public final class MeasureChildTest {
         return rows;
     }
 
-    /** Xóa cây thư mục tạm đã tạo bởi test. */
+    /** Xoa cay thu muc tam da tao boi test. */
     private static void deleteTree(Path root) throws IOException {
         if (!Files.exists(root)) {
             return;
@@ -424,24 +424,24 @@ public final class MeasureChildTest {
         });
     }
 
-    /** Xác nhận điều kiện và báo lỗi rõ nếu không đạt. */
+    /** Xac nhan dieu kien va bao loi ro neu khong dat. */
     private static void assertTrue(boolean condition, String message) {
         if (!condition) {
             throw new AssertionError(message);
         }
     }
 
-    /** So sánh giá trị mong đợi và thực tế. */
+    /** So sanh gia tri mong doi va thuc te. */
     private static void assertEquals(Object expected, Object actual, String message) {
         if (expected == null ? actual != null : !expected.equals(actual)) {
             throw new AssertionError(message + ": expected=" + expected + ", actual=" + actual);
         }
     }
 
-    /** Kiểm tra chuỗi theo regex. */
+    /** Kiem tra chuoi theo regex. */
     private static void assertMatches(String regex, String value, String message) {
         if (value == null || !value.matches(regex)) {
-            throw new AssertionError(message + " sai định dạng: " + value);
+            throw new AssertionError(message + " sai dinh dang: " + value);
         }
     }
 }

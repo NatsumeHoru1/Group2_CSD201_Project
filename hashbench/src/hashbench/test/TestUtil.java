@@ -3,17 +3,17 @@ package hashbench.test;
 import hashbench.HashIndex;
 import java.lang.reflect.Method;
 
-/** Tiện ích chung cho các ca kiểm thử. */
+/** Tien ich chung cho cac ca kiem thu. */
 public final class TestUtil {
     private TestUtil() {}
 
-    /** Gọi validate() công khai (nếu lớp có) bằng reflection; ném lại IllegalStateException của cài đặt. */
+    /** Goi validate() cong khai (neu lop co) bang reflection; nem lai IllegalStateException cua cai dat. */
     public static void validate(HashIndex t) {
         try {
             Method m = t.getClass().getMethod("validate");
             m.invoke(t);
         } catch (NoSuchMethodException ignored) {
-            // Một số bảng kiểm thử không có validate(); bỏ qua.
+            // Mot so bang kiem thu khong co validate(); bo qua.
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
             if (cause instanceof RuntimeException) throw (RuntimeException) cause;
@@ -21,9 +21,9 @@ public final class TestUtil {
         }
     }
 
-    /** Giá trị xác định theo khóa, không bao giờ là NOT_FOUND. */
+    /** Gia tri xac dinh theo khoa, khong bao gio la NOT_FOUND. */
     public static int valueOf(String key) {
-        if (key == null) throw new IllegalArgumentException("key không được null");
+        if (key == null) throw new IllegalArgumentException("key khong duoc null");
         long id = hashbench.KeyCodec.decode(key);
         long mixed = id ^ (id >>> 32);
         int v = (int) (mixed & 0x7fffffffL);

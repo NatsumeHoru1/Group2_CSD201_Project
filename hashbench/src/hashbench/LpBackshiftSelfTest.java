@@ -249,11 +249,11 @@ public final class LpBackshiftSelfTest {
         t.put(c, 2);
         t.put(b, 3);
         t.validate();
-        // Dò mở tuyến tính không hoán đổi: b chi đẩy tới ô 0.
+        // Do mo tuyen tinh khong hoan doi: b chi day toi o 0.
         check(slot(t, 0).equals(occupied(0, b, 1)), "case5 swap: B at slot 0 before E");
         t.put(e, 4);
         t.validate();
-        // e nhà 14 bị chặn bởi a, c, b nên dồn tới ô 1.
+        // e nha 14 bi chan boi a, c, b nen don toi o 1.
         check(slot(t, 1).equals(occupied(1, e, 3)), "case5 swap: E pushed to slot 1");
         check(t.get(a) == 1 && t.get(c) == 2 && t.get(b) == 3 && t.get(e) == 4,
                 "case5 swap: all found");

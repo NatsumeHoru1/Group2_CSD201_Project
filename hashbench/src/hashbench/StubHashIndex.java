@@ -3,26 +3,26 @@ package hashbench;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Bảng giả lập giao diện để kiểm tra runner; STUB, tuyệt đối không dùng để đo chính thức. */
+/** Bang gia lap giao dien de kiem tra runner; STUB, tuyet doi khong dung de do chinh thuc. */
 public class StubHashIndex implements HashIndex {
     private final Map<String, Integer> values;
     private final int tableCapacity;
 
-    /** Tạo bảng giả có dung lượng 2^p. */
+    /** Tao bang gia co dung luong 2^p. */
     public StubHashIndex(int p) {
         if (p < 0 || p > 30) {
-            throw new IllegalArgumentException("p phải nằm trong khoảng 0..30");
+            throw new IllegalArgumentException("p phai nam trong khoang 0..30");
         }
         this.tableCapacity = 1 << p;
         this.values = new HashMap<String, Integer>();
     }
 
-    /** Thêm khóa mới hoặc cập nhật khóa đang có. */
+    /** Them khoa moi hoac cap nhat khoa dang co. */
     @Override
     public int put(String key, int value) {
         requireKey(key);
         if (value == NOT_FOUND) {
-            throw new IllegalArgumentException("value không được bằng NOT_FOUND");
+            throw new IllegalArgumentException("value khong duoc bang NOT_FOUND");
         }
         if (values.containsKey(key)) {
             values.put(key, Integer.valueOf(value));
@@ -35,7 +35,7 @@ public class StubHashIndex implements HashIndex {
         return INSERTED;
     }
 
-    /** Tìm giá trị theo khóa. */
+    /** Tim gia tri theo khoa. */
     @Override
     public int get(String key) {
         requireKey(key);
@@ -43,7 +43,7 @@ public class StubHashIndex implements HashIndex {
         return value == null ? NOT_FOUND : value.intValue();
     }
 
-    /** Xóa khóa nếu khóa đang tồn tại. */
+    /** Xoa khoa neu khoa dang ton tai. */
     @Override
     public boolean remove(String key) {
         requireKey(key);
@@ -52,17 +52,17 @@ public class StubHashIndex implements HashIndex {
 
     private static void requireKey(String key) {
         if (key == null) {
-            throw new IllegalArgumentException("key không được null");
+            throw new IllegalArgumentException("key khong duoc null");
         }
     }
 
-    /** Trả về số khóa đang lưu. */
+    /** Tra ve so khoa dang luu. */
     @Override
     public int size() {
         return values.size();
     }
 
-    /** Trả về dung lượng giả lập của bảng. */
+    /** Tra ve dung luong gia lap cua bang. */
     @Override
     public int capacity() {
         return tableCapacity;

@@ -13,21 +13,21 @@ import java.util.Set;
 import java.util.SplittableRandom;
 
 /**
- * Ca kiểm thử trên bảng nhị phân M = 16 (p = 4), chạy cho cả 6 cấu hình.
- * Đây là các ca bắt buộc TV4; ánh xạ theo mục tiêu của đề bài.
+ * Ca kiem thu tren bang nhi phan M = 16 (p = 4), chay cho ca 6 cau hinh.
+ * Day la cac ca bat buoc TV4; anh xa theo muc tieu cua de bai.
  */
 public final class CoreCases {
     static final int P = 4, M = 1 << P;
     private CoreCases() {}
 
     public static void run(Impl impl) {
-        test("cơ bản: put/get/update/remove", new TestHarness.Body() { public void run() { basic(impl); } });
-        test("put(value = Integer.MIN_VALUE) ném IllegalArgumentException", new TestHarness.Body() { public void run() { minValue(impl); } });
-        test("bảng đầy: put khóa mới trả FULL, không đổi dữ liệu; update vẫn được", new TestHarness.Body() { public void run() { full(impl); } });
-        test("bảng đầy: get/remove khóa vắng mặt phải dừng (giới hạn dò M ô)", new TestHarness.Body() { public void run() { fullAbsentTerminates(impl); } });
-        test("cụm quấn vòng M-1 -> 0: xóa từng phần tử (2 thứ tự chèn)", new TestHarness.Body() { public void run() { wrapAround(impl); } });
-        test("xóa-thêm liên tục (tải 8/16 và 14/16) khớp oracle", new TestHarness.Body() { public void run() { churn(impl, 8); churn(impl, 14); } });
-        test("thống kê (HashStats): bất biến TOMB/EMPTY/rebuild", new TestHarness.Body() { public void run() { statsInvariants(impl); } });
+        test("co ban: put/get/update/remove", new TestHarness.Body() { public void run() { basic(impl); } });
+        test("put(value = Integer.MIN_VALUE) nem IllegalArgumentException", new TestHarness.Body() { public void run() { minValue(impl); } });
+        test("bang day: put khoa moi tra FULL, khong doi du lieu; update van duoc", new TestHarness.Body() { public void run() { full(impl); } });
+        test("bang day: get/remove khoa vang mat phai dung (gioi han do M o)", new TestHarness.Body() { public void run() { fullAbsentTerminates(impl); } });
+        test("cum quan vong M-1 -> 0: xoa tung phan tu (2 thu tu chen)", new TestHarness.Body() { public void run() { wrapAround(impl); } });
+        test("xoa-them lien tuc (tai 8/16 va 14/16) khop oracle", new TestHarness.Body() { public void run() { churn(impl, 8); churn(impl, 14); } });
+        test("thong ke (HashStats): bat bien TOMB/EMPTY/rebuild", new TestHarness.Body() { public void run() { statsInvariants(impl); } });
     }
 
     private static void basic(Impl impl) {
@@ -51,8 +51,8 @@ public final class CoreCases {
         } catch (IllegalArgumentException e) {
             threw = true;
         }
-        check(threw, "put với NOT_FOUND phải ném IllegalArgumentException");
-        eq(0, t.size(), "size không đổi sau lỗi");
+        check(threw, "put voi NOT_FOUND phai nem IllegalArgumentException");
+        eq(0, t.size(), "size khong doi sau loi");
     }
 
     private static void full(Impl impl) {
@@ -63,8 +63,8 @@ public final class CoreCases {
             check(t.put(k, i + 1) == INSERTED, "fill table");
         }
         String extra = uniqueKeyWithHome(7, used, new SplittableRandom(777L));
-        eq(FULL, t.put(extra, 999), "put key mới khi đầy phải FULL");
-        eq(M, t.size(), "size vẫn là M");
+        eq(FULL, t.put(extra, 999), "put key moi khi day phai FULL");
+        eq(M, t.size(), "size van la M");
         String existing = used.iterator().next();
         int before = t.get(existing);
         eq(UPDATED, t.put(existing, before + 100), "update existing key when full");

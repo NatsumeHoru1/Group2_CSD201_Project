@@ -1,40 +1,40 @@
 package hashbench;
 
 /**
- * Tạo bảng băm theo thuật toán. Runner / phần đo nên gọi:
+ * Tao bang bam theo thuat toan. Runner / phan do nen goi:
  *
  *     HashIndex index = HashIndexFactory.create(config.algo, config.variant, config.p);
  *
- * Hiện hỗ trợ:
- *   algo = "rh", variant = "base"    -> Robin Hood đầy đủ (có dừng sớm)
- *   algo = "rh", variant = "noearly" -> Robin Hood tắt dừng sớm (rh-noearly)
- *   algo = "lp-tomb", variant = "base" -> Linear probing + tombstone (TV3); tau chỉ dùng cho
- *                                         lp-tomb: rebuild khi tỉ lệ TOMB > tau.
- *   algo = "lp-backshift", variant = "base" -> Dò mở tuyến tính, xóa dịch lùi
- *     theo Algorithm R của Knuth (TV6)
+ * Hien ho tro:
+ *   algo = "rh", variant = "base"    -> Robin Hood day du (co dung som)
+ *   algo = "rh", variant = "noearly" -> Robin Hood tat dung som (rh-noearly)
+ *   algo = "lp-tomb", variant = "base" -> Linear probing + tombstone (TV3); tau chi dung cho
+ *                                         lp-tomb: rebuild khi ti le TOMB > tau.
+ *   algo = "lp-backshift", variant = "base" -> Do mo tuyen tinh, xoa dich lui
+ *     theo Algorithm R cua Knuth (TV6)
  *   algo = "sc", variant = "base" -> Separate chaining
  *
- * Ghi vào CSV: rh-noearly là algorithm=rh, variant=noearly (không dùng algorithm="rh-noearly").
- * Thuật toán chưa hỗ trợ thì ném IllegalArgumentException; mỗi cặp tự thêm nhánh `if` cho
- * thuật toán của mình. Hàm 3 tham số được giữ lại để không vỡ build của người khác; nó gọi
- * hàm 4 tham số với tau = vô hạn (không bao giờ rebuild). Overload 4 tham số chỉ
- * áp dụng tau cho lp-tomb; các thuật toán khác bỏ qua.
+ * Ghi vao CSV: rh-noearly la algorithm=rh, variant=noearly (khong dung algorithm="rh-noearly").
+ * Thuat toan chua ho tro thi nem IllegalArgumentException; moi cap tu them nhanh `if` cho
+ * thuat toan cua minh. Ham 3 tham so duoc giu lai de khong vo build cua nguoi khac; no goi
+ * ham 4 tham so voi tau = vo han (khong bao gio rebuild). Overload 4 tham so chi
+ * ap dung tau cho lp-tomb; cac thuat toan khac bo qua.
  *
- * Bảng rh còn implement HashStats: dùng ((HashStats) index) để đọc dibMean(), dibMax()
- * (chỉ gọi ngoài vùng đo). Số lần dò đọc từ Counters.probeCount ở lượt --count.
+ * Bang rh con implement HashStats: dung ((HashStats) index) de doc dibMean(), dibMax()
+ * (chi goi ngoai vung do). So lan do doc tu Counters.probeCount o luot --count.
  *
- * Người thêm: TV5 (rh), TV3 (lp-tomb và hàm có tau), TV6 (lp-backshift).
+ * Nguoi them: TV5 (rh), TV3 (lp-tomb va ham co tau), TV6 (lp-backshift).
  */
 public final class HashIndexFactory {
     private HashIndexFactory() {
     }
 
-    /** Giữ chữ ký cũ để không vỡ build của người khác; tau = vô hạn (không rebuild). */
+    /** Giu chu ky cu de khong vo build cua nguoi khac; tau = vo han (khong rebuild). */
     public static HashIndex create(String algo, String variant, int p) {
         return create(algo, variant, p, Double.POSITIVE_INFINITY);
     }
 
-    /** tau chỉ dùng cho lp-tomb: rebuild khi tỉ lệ TOMB > tau. Thuật toán khác bỏ qua tau. */
+    /** tau chi dung cho lp-tomb: rebuild khi ti le TOMB > tau. Thuat toan khac bo qua tau. */
     public static HashIndex create(String algo, String variant, int p, double tau) {
         if ("rh".equals(algo)) {
             return new RobinHoodTable(p, !"noearly".equals(variant));

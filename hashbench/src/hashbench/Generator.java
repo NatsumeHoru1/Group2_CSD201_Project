@@ -5,8 +5,8 @@ import java.security.NoSuchAlgorithmException;
 import java.util.SplittableRandom;
 
 /**
- * Bộ sinh khóa String và tính SHA-256 theo thứ tự khóa.
- * Phụ trách: TV2
+ * Bo sinh khoa String va tinh SHA-256 theo thu tu khoa.
+ * Phu trach: TV2
  */
 public final class Generator {
     public static final long[] FIXED_SEEDS = { 1L, 2L, 3L };
@@ -16,7 +16,7 @@ public final class Generator {
     private Generator() {
     }
 
-    /** Sinh ID khóa có mặt, duy nhất trong miền của KeyCodec. */
+    /** Sinh ID khoa co mat, duy nhat trong mien cua KeyCodec. */
     public static long[] generatePresentIds(long seed, int count) {
         checkCount(count);
         SplittableRandom rng = new SplittableRandom(seed);
@@ -32,10 +32,10 @@ public final class Generator {
         return ids;
     }
 
-    /** Chuyển mảng ID thành khóa String đủ 12 ký tự. */
+    /** Chuyen mang ID thanh khoa String du 12 ky tu. */
     public static String[] idsToKeys(long[] ids) {
         if (ids == null) {
-            throw new IllegalArgumentException("ids không được null");
+            throw new IllegalArgumentException("ids khong duoc null");
         }
         String[] keys = new String[ids.length];
         for (int i = 0; i < ids.length; i++) {
@@ -44,21 +44,21 @@ public final class Generator {
         return keys;
     }
 
-    /** Sinh khóa có mặt duy nhất và mã hóa chúng thành String. */
+    /** Sinh khoa co mat duy nhat va ma hoa chung thanh String. */
     public static String[] generatePresentKeys(long seed, int count) {
         return idsToKeys(generatePresentIds(seed, count));
     }
 
-    /** Sinh ID vắng mặt, không trùng ID nào trong tập có mặt. */
+    /** Sinh ID vang mat, khong trung ID nao trong tap co mat. */
     public static long[] generateAbsentIds(long seed, int count, long[] presentIds) {
         checkCount(count);
         if (presentIds == null) {
-            throw new IllegalArgumentException("presentIds không được null");
+            throw new IllegalArgumentException("presentIds khong duoc null");
         }
         LongSet presentSet = new LongSet(presentIds.length);
         for (int i = 0; i < presentIds.length; i++) {
             if (!presentSet.add(presentIds[i])) {
-                throw new IllegalArgumentException("presentIds chứa ID trùng lặp");
+                throw new IllegalArgumentException("presentIds chua ID trung lap");
             }
         }
         SplittableRandom rng = new SplittableRandom(seed ^ 0xDEADBEEFCAFEBABEL);
@@ -74,16 +74,16 @@ public final class Generator {
         return ids;
     }
 
-    /** Sinh khóa vắng mặt, không giao với tập khóa có mặt. */
+    /** Sinh khoa vang mat, khong giao voi tap khoa co mat. */
     public static String[] generateAbsentKeys(long seed, int count, long[] presentIds) {
         return idsToKeys(generateAbsentIds(seed, count, presentIds));
     }
 
-    /** Sinh khóa dồn cụm với ít nhất 10% home nhỏ hơn max(1, M/64). */
+    /** Sinh khoa don cum voi it nhat 10% home nho hon max(1, M/64). */
     public static String[] generateClusteredKeys(long seed, int count, int p) {
         checkCount(count);
         if (p < 1 || p > 30) {
-            throw new IllegalArgumentException("p phải nằm trong khoảng 1..30");
+            throw new IllegalArgumentException("p phai nam trong khoang 1..30");
         }
         SplittableRandom rng = new SplittableRandom(seed);
         LongSet set = new LongSet(count);
@@ -106,7 +106,7 @@ public final class Generator {
         return keys;
     }
 
-    /** Chuyển mảng byte sang chuỗi Hex bằng tra cứu ký tự. */
+    /** Chuyen mang byte sang chuoi Hex bang tra cuu ky tu. */
     public static String bytesToHex(byte[] bytes) {
         char[] hexChars = new char[bytes.length * 2];
         for (int i = 0; i < bytes.length; i++) {
@@ -117,7 +117,7 @@ public final class Generator {
         return new String(hexChars);
     }
 
-    /** Tính SHA-256 của hai mảng khóa nối tiếp, mỗi khóa là 12 byte ASCII. */
+    /** Tinh SHA-256 cua hai mang khoa noi tiep, moi khoa la 12 byte ASCII. */
     public static String computeSHA256(String[] first, String[] second) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -125,11 +125,11 @@ public final class Generator {
             updateDigest(digest, second);
             return bytesToHex(digest.digest());
         } catch (NoSuchAlgorithmException exception) {
-            throw new RuntimeException("Hệ thống thiếu thuật toán SHA-256", exception);
+            throw new RuntimeException("He thong thieu thuat toan SHA-256", exception);
         }
     }
 
-    /** Đưa các khóa vào digest theo từng khối 8KB. */
+    /** Dua cac khoa vao digest theo tung khoi 8KB. */
     private static void updateDigest(MessageDigest digest, String[] keys) {
         if (keys == null || keys.length == 0) {
             return;
@@ -139,12 +139,12 @@ public final class Generator {
         for (int i = 0; i < keys.length; i++) {
             String key = keys[i];
             if (key == null || key.length() != KeyCodec.KEY_LENGTH) {
-                throw new IllegalArgumentException("Mỗi khóa phải có đúng 12 ký tự");
+                throw new IllegalArgumentException("Moi khoa phai co dung 12 ky tu");
             }
             for (int j = 0; j < key.length(); j++) {
                 char value = key.charAt(j);
                 if (!((value >= '0' && value <= '9') || (value >= 'A' && value <= 'Z'))) {
-                    throw new IllegalArgumentException("Khóa chỉ được chứa ký tự 0-9, A-Z");
+                    throw new IllegalArgumentException("Khoa chi duoc chua ky tu 0-9, A-Z");
                 }
                 buffer[pointer++] = (byte) value;
                 if (pointer == buffer.length) {
@@ -160,7 +160,7 @@ public final class Generator {
 
     private static void checkCount(int count) {
         if (count < 0) {
-            throw new IllegalArgumentException("count phải >= 0");
+            throw new IllegalArgumentException("count phai >= 0");
         }
     }
 }

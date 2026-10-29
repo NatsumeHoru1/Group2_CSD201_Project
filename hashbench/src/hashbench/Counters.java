@@ -1,6 +1,6 @@
 package hashbench;
 
-/** Chứa các bộ đếm tùy chọn dùng chung trong chế độ --count. */
+/** Chua cac bo dem tuy chon dung chung trong che do --count. */
 public final class Counters {
     public static final boolean ON = Main.countMode;
 
@@ -11,14 +11,14 @@ public final class Counters {
     private Counters() {
     }
 
-    /** Đặt mọi bộ đếm về 0 trước một lượt chạy. */
+    /** Dat moi bo dem ve 0 truoc mot luot chay. */
     public static void reset() {
         probeCount = 0L;
         rebuildCount = 0L;
         rebuildNanos = 0L;
     }
 
-    /** Cộng số lần thăm dò khi chế độ đếm được bật. */
+    /** Cong so lan tham do khi che do dem duoc bat. */
     public static void addProbes(long count) {
         if (ON) {
             probeCount += count;

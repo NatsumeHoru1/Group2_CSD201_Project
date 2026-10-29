@@ -8,17 +8,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 
-/** Ghi tiêu đề và hàng dữ liệu theo lược đồ CSV dùng chung. */
+/** Ghi tieu de va hang du lieu theo luoc do CSV dung chung. */
 public final class CsvWriter implements Closeable {
     private final BufferedWriter writer;
     private boolean headerWritten;
 
-    /** Mở file CSV UTF-8 ở chế độ ghi mới. */
+    /** Mo file CSV UTF-8 o che do ghi moi. */
     public CsvWriter(Path path) throws IOException {
         this(path, false);
     }
 
-    /** Mở file CSV để append hoặc ghi mới, tạo thư mục cha nếu cần. */
+    /** Mo file CSV de append hoac ghi moi, tao thu muc cha neu can. */
     public CsvWriter(Path path, boolean append) throws IOException {
         Path parent = path.toAbsolutePath().getParent();
         if (parent != null) {
@@ -39,7 +39,7 @@ public final class CsvWriter implements Closeable {
         this.headerWritten = existingData;
     }
 
-    /** Chỉ ghi header một lần và chỉ khi file chưa có nội dung. */
+    /** Chi ghi header mot lan va chi khi file chua co noi dung. */
     public void writeHeader() throws IOException {
         if (headerWritten) {
             return;
@@ -48,11 +48,11 @@ public final class CsvWriter implements Closeable {
         headerWritten = true;
     }
 
-    /** Ghi một hàng đúng số cột schema; giá trị null được ghi thành ô trống. */
+    /** Ghi mot hang dung so cot schema; gia tri null duoc ghi thanh o trong. */
     public void writeRow(String[] values) throws IOException {
         if (values == null || values.length != CsvSchema.COLUMNS.length) {
             throw new IllegalArgumentException(
-                    "Hàng CSV phải có đúng " + CsvSchema.COLUMNS.length + " cột");
+                    "Hang CSV phai co dung " + CsvSchema.COLUMNS.length + " cot");
         }
         for (int i = 0; i < values.length; i++) {
             if (i > 0) {
@@ -64,15 +64,15 @@ public final class CsvWriter implements Closeable {
     }
 
     /**
-     * Điền metadata đã biết. TODO: input_sha256, generator_version,
-     * heap_before_bytes, heap_peak_bytes, ops_count, output_check và các chỉ số riêng
-     * chưa có nguồn dữ liệu nên để trống.
+     * Dien metadata da biet. TODO: input_sha256, generator_version,
+     * heap_before_bytes, heap_peak_bytes, ops_count, output_check va cac chi so rieng
+     * chua co nguon du lieu nen de trong.
      */
     public void writePhaseRow(Runner.PhaseResult result, String wallMs, RunConfig config,
             String gitCommit)
             throws IOException {
         if (result == null || config == null) {
-            throw new IllegalArgumentException("result và config không được null");
+            throw new IllegalArgumentException("result va config khong duoc null");
         }
         String[] values = new String[CsvSchema.COLUMNS.length];
         values[CsvSchema.RUN_ID_INDEX] = result.runId();
@@ -113,20 +113,20 @@ public final class CsvWriter implements Closeable {
         writeRow(values);
     }
 
-    /** Tạo khóa dòng duy nhất mà không thêm cột ngoài schema đã yêu cầu. */
+    /** Tao khoa dong duy nhat ma khong them cot ngoai schema da yeu cau. */
     public static String runId(String procId, String phase) {
         if (procId == null || phase == null) {
-            throw new IllegalArgumentException("procId và phase không được null");
+            throw new IllegalArgumentException("procId va phase khong duoc null");
         }
         return procId + "_" + phase;
     }
 
-    /** Định dạng số thập phân ổn định theo locale US với ba chữ số lẻ. */
+    /** Dinh dang so thap phan on dinh theo locale US voi ba chu so le. */
     public static String formatDecimal(double value) {
         return String.format(Locale.US, "%.3f", Double.valueOf(value));
     }
 
-    /** Thoát dấu phẩy, dấu nháy và xuống dòng theo quy tắc CSV. */
+    /** Thoat dau phay, dau nhay va xuong dong theo quy tac CSV. */
     private String escape(String value) {
         if (value.indexOf(',') < 0 && value.indexOf('"') < 0
                 && value.indexOf('\n') < 0 && value.indexOf('\r') < 0) {
@@ -135,7 +135,7 @@ public final class CsvWriter implements Closeable {
         return "\"" + value.replace("\"", "\"\"") + "\"";
     }
 
-    /** Đóng file CSV đã mở. */
+    /** Dong file CSV da mo. */
     @Override
     public void close() throws IOException {
         writer.close();
