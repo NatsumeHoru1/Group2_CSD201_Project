@@ -153,7 +153,18 @@ def draw(ax, rows, xkey, label):
         lo = [r["ns_med"] - r["ns_min"] for r in pts]
         hi = [r["ns_max"] - r["ns_med"] for r in pts]
         ax.errorbar(x, y, yerr=[lo, hi], marker="o", capsize=3, label=label)
+    note_partial(ax, pts, xkey, "ns_med")
     mark_timeouts(ax, rows, xkey)
+
+
+def note_partial(ax, rows, xkey, ykey):
+    """Nhom co ca dong ok lan timeout: median chi tinh tren cac luot da xong,
+    nen ghi ro 'k/N ok' de khong bi hieu la du 9 luot."""
+    for r in rows:
+        if r["n_timeout"] > 0 and 0 < r["n_ok"] < r["runs"] and r[ykey] is not None:
+            ax.annotate("%d/%d ok" % (r["n_ok"], r["runs"]), (r[xkey], r[ykey]),
+                        textcoords="offset points", xytext=(0, 7), ha="center",
+                        fontsize=6, color="red")
 
 
 def mark_timeouts(ax, rows, xkey):
@@ -234,6 +245,7 @@ def fig_rq2(S):
                 key=lambda r: r["xi"])
     ax.plot([r["xi"] for r in wl], [r["tomb"] for r in wl], "o-", label="TOMB")
     ax.plot([r["xi"] for r in wl], [r["empty"] for r in wl], "s-", label="EMPTY")
+    note_partial(ax, wl, "xi", "tomb")
     mark_timeouts(ax, [r for r in t if r["phase"] == "workload"], "xi")
     ax.set_ylabel("fraction of slots")
     ax.legend(fontsize=7)
@@ -268,6 +280,9 @@ def grouped_bars(ax, S3, loads_val, cs, labels, field, scale=1.0):
                             ha="center", va="bottom", color="red", rotation=90, fontsize=6)
                 continue
             ax.bar(x, v * scale, w, color="C%d" % i, label=lab if j == 0 else None)
+            if r["n_timeout"] > 0 and 0 < r["n_ok"] < r["runs"]:
+                ax.text(x, v * scale, "%d/%d" % (r["n_ok"], r["runs"]), ha="center",
+                        va="bottom", fontsize=6, color="red")
     ax.set_xticks(range(len(cs)))
     ax.set_xticklabels(["%g" % (c / M20) for c in cs])
     ax.set_xlabel("C / M")
