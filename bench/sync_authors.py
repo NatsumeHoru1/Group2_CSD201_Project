@@ -30,8 +30,8 @@ DOWNLOADS_PAPER_TEX = Path("C:/Users/ADMIN/Downloads/paper.tex")
 
 # Default metadata and technical roles in English for IEEE conference format
 ROLE_DESCRIPTIONS = {
-    1: "TV1{id_str} -- Team Leader / Runner, Workload \\& Primary Measurements.",
-    2: "TV2{id_str} -- SC Implementation, Hashing, Generator \\& Variant B Analysis.",
+    1: "TV1{id_str} -- Runner, Workload \\& Primary Measurements.",
+    2: "TV2{id_str} -- Team Leader / SC Implementation, Hashing, Generator \\& Variant B Analysis.",
     3: "TV3{id_str} -- LP-Tomb Implementation \\& Rebuild Dynamics.",
     4: "TV4{id_str} -- Test Harness, RQ2/RQ3 Workload \\& Repo Administration.",
     5: "TV5{id_str} -- Robin Hood Implementation \\& Paper Framing.",

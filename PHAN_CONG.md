@@ -20,7 +20,7 @@ Danh sách thành viên, MSSV và phần việc kỹ thuật được cập nh�
 - Cập nhật hướng dẫn build, chạy, dữ liệu, phân tích, ngoại lệ validator và
   phân công trong README, `bench/` và `data/`.
 
-## TV2 - Hồ Anh Nhật (MSSV: QE200301): Generator, định dạng khóa, Separate Chaining và phân tích Biến thể B
+## TV2 - Hồ Anh Nhật (MSSV: QE200301) - Nhóm trưởng: Generator, định dạng khóa, Separate Chaining và phân tích Biến thể B
 
 - **24/10:** Thiết kế và cài đặt module `Hashing` (băm Fibonacci 64-bit với hằng số tỉ lệ vàng `0x9E3779B97F4A7C15L`), cấu trúc `LongSet` primitive (loại trừ boxing overhead), và `Generator` sinh khóa ngẫu nhiên tất định dùng `SplittableRandom`.
 - **25/10:** Sửa hàm sinh khóa cụm `generateClusteredKeys` đúng đặc tả (ít nhất 10% home < M/64, 90% phân bố đều); tối ưu hóa `computeSHA256` sang bảng tra cứu hex tĩnh `bytesToHex` O(1); xây dựng script `verify_env.bat` kiểm định môi trường Java 8 / bytecode 52 / GC / selftest; chốt danh sách 3 seed chính thức (1, 2, 3) vào `bench/seeds.txt`.

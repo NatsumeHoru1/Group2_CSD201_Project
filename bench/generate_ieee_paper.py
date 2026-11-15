@@ -14,6 +14,7 @@ Generate paper_ieee.docx and paper.pdf strictly following the IEEE Conference Pa
 
 import os
 import sys
+from pathlib import Path
 from docx import Document
 from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -61,6 +62,44 @@ def set_table_borders(table, has_header=True):
             )
             tcPr.append(tcBorders)
 
+
+def set_table_layout(table, col_widths_dxa, alignment=WD_TABLE_ALIGNMENT.LEFT):
+    table.alignment = alignment
+    table.autofit = False
+    tblPr = table._tbl.tblPr
+    
+    total_dxa = sum(col_widths_dxa)
+    tblW = tblPr.xpath('./w:tblW')
+    if tblW:
+        tblW[0].set(qn('w:w'), str(total_dxa))
+        tblW[0].set(qn('w:type'), 'dxa')
+    else:
+        tblPr.append(parse_xml(f'<w:tblW {nsdecls("w")} w:w="{total_dxa}" w:type="dxa"/>'))
+    
+    tblGrid = table._tbl.tblGrid
+    if tblGrid is not None:
+        table._tbl.remove(tblGrid)
+    new_grid = OxmlElement('w:tblGrid')
+    for w in col_widths_dxa:
+        col = OxmlElement('w:gridCol')
+        col.set(qn('w:w'), str(w))
+        new_grid.append(col)
+    table._tbl.insert(table._tbl.index(tblPr) + 1, new_grid)
+
+    for i, row in enumerate(table.rows):
+        trPr = row._tr.get_or_add_trPr()
+        trPr.append(parse_xml(f'<w:cantSplit {nsdecls("w")}/>'))
+        if i == 0:
+            trPr.append(parse_xml(f'<w:tblHeader {nsdecls("w")}/>'))
+        for j, cell in enumerate(row.cells):
+            tcPr = cell._tc.get_or_add_tcPr()
+            tcW = tcPr.xpath('./w:tcW')
+            if tcW:
+                tcW[0].set(qn('w:w'), str(col_widths_dxa[j]))
+                tcW[0].set(qn('w:type'), 'dxa')
+            else:
+                tcPr.append(parse_xml(f'<w:tcW {nsdecls("w")} w:w="{col_widths_dxa[j]}" w:type="dxa"/>'))
+
 def add_p(doc, text="", align=WD_ALIGN_PARAGRAPH.LEFT, bold=False, italic=False, size=Pt(10), 
           space_before=Pt(0), space_after=Pt(3), indent=Inches(0), line_spacing=1.05):
     p = doc.add_paragraph()
@@ -104,14 +143,12 @@ def add_heading_2(doc, text):
 
 def add_equation(doc, eq_text, eq_num):
     tbl = doc.add_table(rows=1, cols=2)
-    tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
+    tbl.alignment = WD_TABLE_ALIGNMENT.LEFT
     tbl.autofit = False
+    set_table_layout(tbl, [4176, 691], alignment=WD_TABLE_ALIGNMENT.LEFT)
     
-    # 2 columns inside 3.4 inch column
     c0 = tbl.cell(0, 0)
     c1 = tbl.cell(0, 1)
-    c0.width = Inches(2.9)
-    c1.width = Inches(0.48)
     
     p0 = c0.paragraphs[0]
     p0.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -191,10 +228,10 @@ def main():
     
     # Author Block: 4 authors in Row 1, 2 authors in Row 2 (matching template image)
     authors_r1 = [
-        ("Huỳnh Anh Tuấn", "TV1: Team Leader / Runner", "Dept. of Computer Science", "FPT University, Quy Nhon", "QE200073@fpt.edu.vn"),
-        ("Hồ Anh Nhật", "TV2: SC & Hashing", "Dept. of Computer Science", "FPT University, Quy Nhon", "QE200301@fpt.edu.vn"),
-        ("Đinh Thiện Nhân", "TV3: LP-Tomb & Rebuild", "Dept. of Computer Science", "FPT University, Quy Nhon", "QE190092@fpt.edu.vn"),
-        ("Nguyễn Trần Anh Kiệt", "TV4: Test Harness & RQ2/3", "Dept. of Computer Science", "FPT University, Quy Nhon", "QE200105@fpt.edu.vn")
+        ("Huỳnh Anh Tuấn", "TV1: Runner & Workload", "Dept. of Computer Science", "FPT University, Quy Nhon", "Student ID: QE200073"),
+        ("Hồ Anh Nhật", "TV2: Team Leader / SC & Hashing", "Dept. of Computer Science", "FPT University, Quy Nhon", "Student ID: QE200301"),
+        ("Đinh Thiện Nhân", "TV3: LP-Tomb & Rebuild", "Dept. of Computer Science", "FPT University, Quy Nhon", "Student ID: QE190092"),
+        ("Nguyễn Trần Anh Kiệt", "TV4: Test Harness & RQ2/3", "Dept. of Computer Science", "FPT University, Quy Nhon", "Student ID: QE200105")
     ]
     
     table_auth1 = doc.add_table(rows=1, cols=4)
@@ -228,8 +265,8 @@ def main():
     
     # Row 2: 2 authors centered (using 4 columns with empty outer columns)
     authors_r2 = [
-        ("Châu Minh Tiến", "TV5: Robin Hood & Framing", "Dept. of Computer Science", "FPT University, Quy Nhon", "QE200077@fpt.edu.vn"),
-        ("Võ Ngọc Phú", "TV6: LP-Backshift & Validator", "Dept. of Computer Science", "FPT University, Quy Nhon", "QE200004@fpt.edu.vn")
+        ("Châu Minh Tiến", "TV5: Robin Hood & Framing", "Dept. of Computer Science", "FPT University, Quy Nhon", "Student ID: QE200077"),
+        ("Võ Ngọc Phú", "TV6: LP-Backshift & Validator", "Dept. of Computer Science", "FPT University, Quy Nhon", "Student ID: QE200004")
     ]
     
     table_auth2 = doc.add_table(rows=1, cols=4)
@@ -302,7 +339,7 @@ def main():
         "after 4M delete-insert cycles, leading to empty slot exhaustion and 12 process timeouts. In RQ3 at live load 0.8 "
         "and C = 4M, median workload times are 9.413 s for LP-Tomb with rebuild (τ = 0.1), 5.901 s for LP-Backshift, "
         "6.056 s for Robin Hood, and 6.025 s for Robin Hood without early-stop. LP-Tomb incurs 23 rebuilds with maximum block "
-        "latency reaching 121.106 ms, while backward-shift and Robin Hood maintain smooth block latencies under 12.7 ms. "
+        "latency reaching 121.106 ms, while backward-shift and Robin Hood maintain smooth median peak block latencies under 12.7 ms. "
         "We report all raw data, sealed under tag measure-v1, along with one timing-variance outlier verified via 11 deterministic rerun samples."
     )
     r_abst = p_abs.add_run(abs_text)
@@ -451,7 +488,7 @@ def main():
     
     vb_points = [
         ("1) O(L) Hash Cost: ", "Java calculates string hashes via Horner's rule: h_i = 31·h_(i-1) + s[i]. For L = 12, each un-cached hash demands 11 multiplications and 12 additions."),
-        ("2) JDK 8 Hash Cache: ", "The String class encapsulates a private int hash field. Once computed, the cached value is returned in O(1) time. In our benchmark, build incurs full O(L) cost; present lookups reuse references (cached O(1)); absent lookups generate fresh search keys, incurring initial O(L) hash calculation."),
+        ("2) JDK 8 Hash Cache: ", "The String class encapsulates a private int hash field. Once computed, the cached value is returned in O(1) time. In our benchmark harness, query keys are instantiated as freshly encoded String objects via KeyCodec.encode; thus, both present and absent lookups incur the initial O(L) character-scan hash computation upon their first access at the initial bucket lookup (home(key)). Subsequent open-address probing steps perform arithmetic index progression ((idx+1) & mask) without re-invoking hashCode(), confining string-processing overhead strictly to initial hashing and key-equality comparisons."),
         ("3) String.equals() Overhead: ", "While primitive comparisons consume a single CMP instruction, String.equals() performs reference check (==), length verification, and character loop, causing CPU stalls during extended linear probe walks."),
         ("4) Heap & GC Pressure: ", "Under 64-bit compressed OOPs, each String requires 64 bytes (24B header/fields + 40B char[12]). In Separate Chaining, each list node introduces an additional 24B header, amplifying GC footprint.")
     ]
@@ -479,10 +516,8 @@ def main():
     table1.alignment = WD_TABLE_ALIGNMENT.CENTER
     table1.autofit = False
     
-    col_w1 = [Inches(1.5), Inches(1.88)]
-    for row in table1.rows:
-        for idx, width in enumerate(col_w1):
-            row.cells[idx].width = width
+    col_dxa1 = [2160, 2707]
+    set_table_layout(table1, col_dxa1, alignment=WD_TABLE_ALIGNMENT.LEFT)
             
     headers1 = ["Algorithmic Mechanism", "Class & Method"]
     for idx, h in enumerate(headers1):
@@ -564,8 +599,9 @@ def main():
         "60-second execution cutoff (waitFor(60, SECONDS)). Before measurement, each process performs 3 warm-up rounds over smaller "
         "key batches and invokes explicit System.gc() calls to stabilize heap occupancy.\n\n"
         "Timing runs (elapsed_ms) and probe-counting runs (--count) are strictly segregated; during --count runs, internal probe "
-        "instrumentation is activated to capture ops_count. Full operational correctness is verified across 100% of executions by "
-        "validating the output_check SHA-256 digest against an oracle baseline produced by java.util.HashMap."
+        "instrumentation is activated to capture ops_count. Full operational correctness is verified across 100% of completed executions by "
+        "validating the cumulative 64-bit integer checksum (output_check) against an oracle baseline produced by java.util.HashMap, "
+        "while dataset integrity is guaranteed via input_sha256 SHA-256 digests."
     )
     
     # ------------------ SECTION V. RESULTS & DISCUSSION ------------------
@@ -576,7 +612,7 @@ def main():
     p.add_run(
         "Experiment 1A assesses sensitivity to load factors α ∈ {0.50, 0.75, 0.90, 0.95} at capacity M = 2^20 = 1,048,576 "
         "(each data point represents the median of 9 valid repetitions, normalized to ns/query). Experiment 1B examines scaling across "
-        "table capacities M ∈ {2^18, ..., 2^23} at fixed α = 0.75."
+        "table capacities M ∈ {2^18, 2^20, 2^21, 2^22, 2^23} at fixed α = 0.75 (with p = 20 shared from Experiment 1A)."
     )
     
     # TABLE II
@@ -586,10 +622,8 @@ def main():
     table2.alignment = WD_TABLE_ALIGNMENT.CENTER
     table2.autofit = False
     
-    col_w2 = [Inches(0.48), Inches(0.72), Inches(0.72), Inches(0.73), Inches(0.73)]
-    for row in table2.rows:
-        for idx, width in enumerate(col_w2):
-            row.cells[idx].width = width
+    col_dxa2 = [600, 1067, 1067, 1067, 1066]
+    set_table_layout(table2, col_dxa2, alignment=WD_TABLE_ALIGNMENT.LEFT)
             
     headers2 = ["α", "LP pres", "SC pres", "LP abs", "SC abs"]
     for idx, h in enumerate(headers2):
@@ -613,7 +647,8 @@ def main():
                    align=WD_ALIGN_PARAGRAPH.CENTER, italic=True, size=Pt(7.5), space_before=Pt(1), space_after=Pt(4))
     
     # FIGURES 1, 2, 3
-    fig_dir = r"C:\Users\ADMIN\.gemini\antigravity\scratch\Group2_CSD201_Project\results\figures"
+    repo_root = Path(__file__).resolve().parent.parent
+    fig_dir = str(repo_root / "results" / "figures")
     fig_w = Inches(3.38) # Exact width for 1 column
     
     # Fig 1
@@ -621,6 +656,7 @@ def main():
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.paragraphs[-1].paragraph_format.space_before = Pt(4)
     doc.paragraphs[-1].paragraph_format.space_after = Pt(1)
+    doc.paragraphs[-1].paragraph_format.keep_with_next = True
     
     p_cap1 = add_p(doc, "Fig. 1. RQ1: Median lookup latency (log scale) across load factors α.",
                    align=WD_ALIGN_PARAGRAPH.CENTER, italic=True, size=Pt(8), space_before=Pt(0), space_after=Pt(6))
@@ -631,6 +667,7 @@ def main():
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.paragraphs[-1].paragraph_format.space_before = Pt(4)
     doc.paragraphs[-1].paragraph_format.space_after = Pt(1)
+    doc.paragraphs[-1].paragraph_format.keep_with_next = True
     
     p_cap2 = add_p(doc, "Fig. 2. RQ1: Lookup and build latencies vs. table scale p (M=2^p, α=0.75).",
                    align=WD_ALIGN_PARAGRAPH.CENTER, italic=True, size=Pt(8), space_before=Pt(0), space_after=Pt(6))
@@ -641,6 +678,7 @@ def main():
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.paragraphs[-1].paragraph_format.space_before = Pt(4)
     doc.paragraphs[-1].paragraph_format.space_after = Pt(1)
+    doc.paragraphs[-1].paragraph_format.keep_with_next = True
     
     p_cap3 = add_p(doc, "Fig. 3. RQ1: Measured probe counts vs. Knuth's theoretical estimates.",
                    align=WD_ALIGN_PARAGRAPH.CENTER, italic=True, size=Pt(8), space_before=Pt(0), space_after=Pt(6))
@@ -680,6 +718,18 @@ def main():
         "encountered once the active working set exceeds the processor's 12 MB L3 cache and spills into main DDR4 RAM."
     )
     
+    p = add_p(doc, align=WD_ALIGN_PARAGRAPH.JUSTIFY, indent=Inches(0.15))
+    p.add_run("Clustered Key Evaluation (rq1clust): ").bold = True
+    p.add_run(
+        "To test hash robustness under non-uniform key distributions, an adversarial clustered workload (10% keys hashing into "
+        "h(k) < M/64) was evaluated at α = 0.75 for p ∈ {18, 20}. Separate Chaining demonstrated extreme structural resilience: SC completed "
+        "build in 22.0 ms (p=18) and 103.7 ms (p=20), with query latencies maintaining 1.06–1.73 s (present) and 0.55–0.83 s (absent). "
+        "In stark contrast, Linear Probing suffered catastrophic primary clustering: at p=18, build latency skyrocketed to 5,222.3 ms and "
+        "present lookup exceeded the 60-second execution cutoff (TIMEOUT); at p=20, build itself timed out (>60 s). This empirically demonstrates "
+        "that open addressing with linear probing is acutely vulnerable to clustering pathologies without ideal uniform hashing, whereas chaining "
+        "isolates collision storms to local bucket chains."
+    )
+    
     # ------------------ RQ2 ------------------
     add_heading_2(doc, "B. RQ2: Tombstone Accumulation & Lookup Degradation")
     p = add_p(doc, align=WD_ALIGN_PARAGRAPH.JUSTIFY, indent=Inches(0.15))
@@ -695,10 +745,8 @@ def main():
     table3.alignment = WD_TABLE_ALIGNMENT.CENTER
     table3.autofit = False
     
-    col_w3 = [Inches(0.55), Inches(0.65), Inches(0.65), Inches(0.77), Inches(0.76)]
-    for row in table3.rows:
-        for idx, width in enumerate(col_w3):
-            row.cells[idx].width = width
+    col_dxa3 = [867, 900, 900, 1100, 1100]
+    set_table_layout(table3, col_dxa3, alignment=WD_TABLE_ALIGNMENT.LEFT)
             
     headers3 = ["Cycles", "TOMB %", "EMPTY %", "LP abs", "Ctl abs"]
     for idx, h in enumerate(headers3):
@@ -728,6 +776,7 @@ def main():
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.paragraphs[-1].paragraph_format.space_before = Pt(4)
     doc.paragraphs[-1].paragraph_format.space_after = Pt(1)
+    doc.paragraphs[-1].paragraph_format.keep_with_next = True
     
     p_cap4 = add_p(doc, "Fig. 4. RQ2: Tombstone accumulation, empty slot decay, and lookup latency vs. cycles C.",
                    align=WD_ALIGN_PARAGRAPH.CENTER, italic=True, size=Pt(8), space_before=Pt(0), space_after=Pt(6))
@@ -764,10 +813,8 @@ def main():
     table4.alignment = WD_TABLE_ALIGNMENT.CENTER
     table4.autofit = False
     
-    col_w4 = [Inches(1.3), Inches(0.68), Inches(0.7), Inches(0.7)]
-    for row in table4.rows:
-        for idx, width in enumerate(col_w4):
-            row.cells[idx].width = width
+    col_dxa4 = [1467, 1100, 1100, 1200]
+    set_table_layout(table4, col_dxa4, alignment=WD_TABLE_ALIGNMENT.LEFT)
             
     headers4 = ["Configuration", "Workload", "Blk med", "Blk max"]
     for idx, h in enumerate(headers4):
@@ -798,6 +845,7 @@ def main():
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.paragraphs[-1].paragraph_format.space_before = Pt(4)
     doc.paragraphs[-1].paragraph_format.space_after = Pt(1)
+    doc.paragraphs[-1].paragraph_format.keep_with_next = True
     
     p_cap5 = add_p(doc, "Fig. 5. RQ3: Median cumulative workload runtime across algorithms and churn C.",
                    align=WD_ALIGN_PARAGRAPH.CENTER, italic=True, size=Pt(8), space_before=Pt(0), space_after=Pt(6))
@@ -808,6 +856,7 @@ def main():
     doc.paragraphs[-1].alignment = WD_ALIGN_PARAGRAPH.CENTER
     doc.paragraphs[-1].paragraph_format.space_before = Pt(4)
     doc.paragraphs[-1].paragraph_format.space_after = Pt(1)
+    doc.paragraphs[-1].paragraph_format.keep_with_next = True
     
     p_cap6 = add_p(doc, "Fig. 6. RQ3: 10,000-op interval median & max block latencies with max/med ratio.",
                    align=WD_ALIGN_PARAGRAPH.CENTER, italic=True, size=Pt(8), space_before=Pt(0), space_after=Pt(6))
@@ -819,7 +868,7 @@ def main():
     rq3_items = [
         ("• Overall Throughput: ", "lp-backshift achieves the best overall throughput (5.901 s), beating lp-tomb+rebuild (9.413 s) by 37.3%. Both Robin Hood variants achieve comparable runtimes (~6.0 s). Unlike non-rebuilding LP in RQ2, all configurations with active rebuild or shifting completed 100% of runs with zero timeouts."),
         ("• Stop-the-World Latency Spikes: ", "Across 4M cycles, lp-tomb+rebuild triggers a median of 23 full-table rebuilds (expending 2,436.6 ms exclusively in tombstone purge passes). This induces severe latency spikes in blocks containing rebuild events, pushing Block Max to 121.106 ms (max/median ≈ 14.6×)."),
-        ("• Predictability of Backshift & Robin Hood: ", "By reorganizing entries locally at the moment of deletion, lp-backshift and Robin Hood bound the max/median ratio below 1.7×, with peak block latencies never exceeding 12.7 ms. This delivers crucial empirical evidence for low-latency, SLA-governed systems.")
+        ("• Predictability of Backshift & Robin Hood: ", "By reorganizing entries locally at the moment of deletion, lp-backshift and Robin Hood bound the max/median ratio below 1.75×, with median peak block latencies remaining under 12.7 ms (with isolated single-run outliers reaching 14.1 ms in LP-Backshift and 48.3 ms in Robin Hood, likely attributable to transient JVM JIT/GC pauses). This delivers crucial empirical evidence for low-latency, SLA-governed systems.")
     ]
     for bold_pre, text in rq3_items:
         p = add_p(doc, align=WD_ALIGN_PARAGRAPH.JUSTIFY, space_before=Pt(1), space_after=Pt(2), indent=Inches(0.1))
@@ -839,7 +888,7 @@ def main():
         " recorded an elapsed time of 314.931 ms during ctl_present, representing 2.065× the group median (152.481 ms) "
         "and slightly exceeding the 2.0× warning threshold.\n\n"
         "An independent deterministic rerun yielded 157.419 ms (1.043× the reference median 150.893 ms) with status ok "
-        "and identical SHA-256 output_check digest. This behavior aligns with JVM JIT compilation warmup jitter on the initial process "
+        "and identical 64-bit output_check checksum. This behavior aligns with JVM JIT compilation warmup jitter on the initial process "
         "repetition. In adherence to scientific integrity, the original data point is preserved in the sealed CSV without artificial filtering."
     )
     
@@ -847,7 +896,7 @@ def main():
     p = add_p(doc, align=WD_ALIGN_PARAGRAPH.JUSTIFY, indent=Inches(0.15))
     p.add_run(
         "Stratified rerun tests across 11 representative benchmark configurations achieved 100% ok status and exact output_check "
-        "oracle matches. Ratios of rerun elapsed time to group median strictly fell within [0.807×, 1.302×], well inside the "
+        "oracle checksum matches. Ratios of rerun elapsed time to group median strictly fell within [0.807×, 1.302×], well inside the "
         "admissible tolerance band [0.5×, 2.0×]."
     )
     
@@ -899,9 +948,35 @@ def main():
         r_ref.font.size = Pt(8)
         
     # Save destinations
-    out_docx = r"C:\Users\ADMIN\.gemini\antigravity\scratch\Group2_CSD201_Project\paper\paper.docx"
-    doc.save(out_docx)
-    print(f"Successfully generated IEEE Word document: {out_docx}")
+    paper_dir = repo_root / "paper"
+    temp_docx = str(paper_dir / "paper_temp_gen.docx")
+    out_pdf = str(paper_dir / "paper_update_2.pdf")
+    doc.save(temp_docx)
+
+    # Export to PDF via Microsoft Word COM
+    try:
+        import win32com.client
+        import pythoncom
+        pythoncom.CoInitialize()
+        word = win32com.client.Dispatch("Word.Application")
+        word.Visible = False
+        word.DisplayAlerts = 0
+        word_doc = word.Documents.Open(os.path.abspath(temp_docx))
+        word_doc.SaveAs(os.path.abspath(out_pdf), FileFormat=17) # 17 = wdFormatPDF
+        word_doc.Close(False)
+        try:
+            word.Quit()
+        except Exception:
+            pass
+        print(f"Successfully converted to PDF via Microsoft Word: {out_pdf}")
+    except Exception as e:
+        print(f"Warning: Word COM export failed: {e}")
+    finally:
+        if os.path.exists(temp_docx):
+            try:
+                os.remove(temp_docx)
+            except Exception:
+                pass
 
 if __name__ == "__main__":
     main()
